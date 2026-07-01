@@ -40,7 +40,7 @@ import moe.ouom.neriplayer.core.download.candidateManagedDownloadFileNameTemplat
 import moe.ouom.neriplayer.core.download.parseManagedDownloadBaseName
 import moe.ouom.neriplayer.data.local.media.LocalMediaSupport
 import moe.ouom.neriplayer.data.local.media.LocalSongSupport
-import moe.ouom.neriplayer.data.local.media.normalizeLocalAlbumIdentity
+import moe.ouom.neriplayer.data.local.media.localDirectoryAlbumName
 import moe.ouom.neriplayer.data.local.media.preferredLocalMediaReference
 import moe.ouom.neriplayer.data.model.identity
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
@@ -181,7 +181,6 @@ object LocalAudioImportManager {
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
             MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.MediaColumns.RELATIVE_PATH,
@@ -194,7 +193,6 @@ object LocalAudioImportManager {
                 val idxId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                 val idxTitle = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
                 val idxArtist = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-                val idxAlbum = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
                 val idxDuration = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
                 val idxDisplayName = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
                 val idxRelativePath = cursor.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
@@ -224,9 +222,7 @@ object LocalAudioImportManager {
                     val fallbackArtist = cursor.getString(idxArtist)
                         .orEmpty()
                         .ifBlank { context.getString(R.string.music_unknown_artist) }
-                    val fallbackAlbum = cursor.getString(idxAlbum)
-                        .orEmpty()
-                        .ifBlank { LocalSongSupport.LOCAL_ALBUM_IDENTITY }
+                    val fallbackAlbum = localDirectoryAlbumName(resolvedFile)
                     val fallbackTitle = cursor.getString(idxTitle)
                         .orEmpty()
                         .takeIf(::isReadableScannedTitle)
@@ -323,11 +319,7 @@ object LocalAudioImportManager {
             fallbackArtist = fallbackArtist,
             parsed = parsedFileName
         ) ?: baseSong.artist.takeIf { it.isNotBlank() } ?: fallbackArtist
-        val safeAlbum = resolveParsedAlbumFallback(
-            currentAlbum = baseSong.album,
-            fallbackAlbum = fallbackAlbum,
-            parsed = parsedFileName
-        ) ?: baseSong.album.takeIf { it.isNotBlank() } ?: fallbackAlbum
+        val safeAlbum = fallbackAlbum
 
         return baseSong.copy(
             id = computeStableSongId(source),
@@ -378,15 +370,8 @@ object LocalAudioImportManager {
             parsed = parsedFileName
         ) ?: queriedArtist
             ?: unknownArtistLabel
-        val resolvedAlbumSeed = resolveParsedAlbumFallback(
-            currentAlbum = seed.album,
-            fallbackAlbum = LocalSongSupport.LOCAL_ALBUM_IDENTITY,
-            parsed = parsedFileName
-        ) ?: seed.album
-        val resolvedAlbum = normalizeLocalAlbumIdentity(
-            album = resolvedAlbumSeed,
-            usesFallbackAlbum = resolvedAlbumSeed.isNullOrBlank()
-        )
+        val resolvedAlbum = seed.localFile?.let(::localDirectoryAlbumName)
+            ?: LocalSongSupport.LOCAL_ALBUM_IDENTITY
         val stableId = computeStableSongId(resolvedSource)
 
         return SongItem(
@@ -419,7 +404,7 @@ object LocalAudioImportManager {
             .takeIf(::isReadableQuickImportedTitle)
             ?: quickSong.name
         val resolvedArtist = detailedSong.artist.takeIf { it.isNotBlank() } ?: quickSong.artist
-        val resolvedAlbum = detailedSong.album.takeIf { it.isNotBlank() } ?: quickSong.album
+        val resolvedAlbum = quickSong.localDirectoryAlbumName() ?: quickSong.album
         val resolvedCoverUrl = detailedSong.coverUrl ?: quickSong.coverUrl
 
         return quickSong.copy(

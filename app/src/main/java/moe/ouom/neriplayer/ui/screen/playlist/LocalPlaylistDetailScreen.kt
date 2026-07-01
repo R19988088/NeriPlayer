@@ -823,7 +823,7 @@ fun LocalPlaylistDetailScreen(
                     ) 
                 },
                 topBar = {
-                    if (!selectionMode) {
+                    if (!selectionMode && !isPlaying) {
                         TopAppBar(
                             title = {
                                 val displayName = when {
@@ -1041,76 +1041,22 @@ fun LocalPlaylistDetailScreen(
                                     .fillMaxSize()
                                     .reorderable(reorderState)
                             ) {
-                            // 头图
                             item(key = headerKey) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(headerHeight)
-                                ) {
-                                    // 头图取"展示顺序"的第一张有封面的
-                                    AsyncImage(
-                                        model = offlineCachedImageRequest(
-                                            context = context,
-                                            data = headerCover,
-                                            sizePx = 768,
-                                            allowHardware = false
-                                        ),
-                                        contentDescription = playlist.name,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .drawWithContent {
-                                                drawContent()
-                                                drawRect(
-                                                    brush = Brush.verticalGradient(
-                                                        colors = listOf(
-                                                            Color.Black.copy(alpha = 0.10f),
-                                                            Color.Black.copy(alpha = 0.35f),
-                                                            Color.Transparent
-                                                        ),
-                                                        startY = 0f, endY = size.height
-                                                    )
-                                                )
-                                            }
-                                    )
-                                    Column(
-                                        modifier = Modifier
-                                            .align(Alignment.BottomStart)
-                                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                                    ) {
-                                        val headerDisplayName = when {
-                                            isFavorites -> stringResource(R.string.favorite_my_music)
-                                            isLocalFilesPlaylist -> stringResource(R.string.local_files)
-                                            else -> playlist.name
-                                        }
-                                        Text(
-                                            text = headerDisplayName,
-                                            style = MaterialTheme.typography.headlineSmall.copy(
-                                                shadow = Shadow(
-                                                    color = Color.Black.copy(alpha = 0.6f),
-                                                    offset = Offset(2f, 2f),
-                                                    blurRadius = 4f
-                                                )
-                                            ),
-                                            color = Color.White,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(
-                                            text = stringResource(R.string.local_playlist_total_duration, formatTotalDuration(context, totalDurationMs), localSongs.size),
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                shadow = Shadow(
-                                                    color = Color.Black.copy(alpha = 0.6f),
-                                                    offset = Offset(2f, 2f),
-                                                    blurRadius = 4f
-                                                )
-                                            ),
-                                            color = Color.White.copy(alpha = 0.92f)
-                                        )
-                                    }
+                                val headerDisplayName = when {
+                                    isFavorites -> stringResource(R.string.favorite_my_music)
+                                    isLocalFilesPlaylist -> stringResource(R.string.local_files)
+                                    else -> playlist.name
                                 }
+                                PlaylistHeroHeader(
+                                    title = headerDisplayName,
+                                    subtitle = stringResource(R.string.local_playlist_total_duration, formatTotalDuration(context, totalDurationMs), localSongs.size),
+                                    cover = headerCover,
+                                    onBack = onBack,
+                                    onPlay = { if (baseQueue.isNotEmpty()) onSongClick(baseQueue, 0) },
+                                    playEnabled = baseQueue.isNotEmpty(),
+                                    height = if (isPlaying) 500.dp else headerHeight,
+                                    rightControl = null
+                                )
                             }
 
                             // 列表（倒序）

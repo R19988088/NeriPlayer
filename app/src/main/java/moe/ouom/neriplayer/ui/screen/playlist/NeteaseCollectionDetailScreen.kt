@@ -293,6 +293,7 @@ fun DetailScreen(
     val hasDownloadManagerEntry = remember(downloadTasks) { hasPendingDownloadTasks(downloadTasks) }
 
     val currentSong by PlayerManager.currentSongFlow.collectAsState()
+    val isPlaying by PlayerManager.isPlayingFlow.collectAsState()
     val listState = rememberSaveable(playlistId, saver = LazyListState.Saver) {
         LazyListState(firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = 0)
     }
@@ -352,7 +353,7 @@ fun DetailScreen(
                 val miniPlayerHeight = LocalMiniPlayerHeight.current
                 Column {
                     // 顶部栏：普通模式 / 多选模式
-                    if (!selectionMode) {
+                    if (!selectionMode && !isPlaying) {
                         TopAppBar(
                             title = {
                                 Text(
@@ -524,77 +525,47 @@ fun DetailScreen(
                             modifier = Modifier.fillMaxSize()
                         ) {
                             item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(headerHeight)
-                                ) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current)
-                                            .data(ui.header?.coverUrl.takeUnless { it.isNullOrBlank() }
-                                                ?: "about:blank")
-                                            .crossfade(true)
-                                            .memoryCachePolicy(CachePolicy.ENABLED)
-                                            .diskCachePolicy(CachePolicy.ENABLED)
-                                            .networkCachePolicy(CachePolicy.ENABLED)
-                                            .build(),
-                                        contentDescription = ui.header?.name
-                                            ?: stringResource(R.string.playlist_title),
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .drawWithContent {
-                                                drawContent()
-                                                drawRect(
-                                                    brush = Brush.verticalGradient(
-                                                        colors = listOf(
-                                                            Color.Black.copy(alpha = 0.10f),
-                                                            Color.Black.copy(alpha = 0.35f),
-                                                            Color.Transparent
-                                                        ),
-                                                        startY = 0f,
-                                                        endY = size.height
-                                                    )
-                                                )
+                                PlaylistHeroHeader(
+                                    title = ui.header?.name ?: "Playlist Shuffling",
+                                    subtitle = stringResource(
+                                        R.string.playlist_play_count_format,
+                                        formatPlayCount(context, ui.header?.playCount ?: 0),
+                                        ui.header?.trackCount ?: 0
+                                    ),
+                                    cover = ui.header?.coverUrl.takeUnless { it.isNullOrBlank() },
+                                    onBack = onBack,
+                                    onPlay = { if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0) },
+                                    playEnabled = ui.tracks.isNotEmpty(),
+                                    height = if (isPlaying) 500.dp else headerHeight,
+                                    rightControl = {
+                                        HapticIconButton(
+                                            onClick = {
+                                                scope.launch {
+                                                    if (isFavorite) {
+                                                        favoriteRepo.removeFavorite(playlistId, playlistSource)
+                                                    } else {
+                                                        ui.header?.let { header ->
+                                                            favoriteRepo.addFavorite(
+                                                                id = playlistId,
+                                                                name = header.name,
+                                                                coverUrl = header.coverUrl,
+                                                                trackCount = header.trackCount,
+                                                                source = playlistSource,
+                                                                songs = ui.tracks
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                             }
-                                    )
-
-                                    Column(
-                                        modifier = Modifier
-                                            .align(Alignment.BottomStart)
-                                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                                    ) {
-                                        Text(
-                                            text = ui.header?.name ?: "Playlist Shuffling",
-                                            style = MaterialTheme.typography.headlineSmall.copy(
-                                                shadow = Shadow(
-                                                    color = Color.Black.copy(alpha = 0.6f),
-                                                    offset = Offset(2f, 2f),
-                                                    blurRadius = 4f
-                                                )
-                                            ),
-                                            color = Color.White,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Spacer(Modifier.height(4.dp))
-                                        Text(
-                                            text = stringResource(
-                                                R.string.playlist_play_count_format,
-                                                formatPlayCount(context, ui.header?.playCount ?: 0),
-                                                ui.header?.trackCount ?: 0
-                                            ),
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                shadow = Shadow(
-                                                    color = Color.Black.copy(alpha = 0.6f),
-                                                    offset = Offset(2f, 2f),
-                                                    blurRadius = 4f
-                                                )
-                                            ),
-                                            color = Color.White.copy(alpha = 0.9f)
-                                        )
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                                contentDescription = if (isFavorite) stringResource(R.string.action_unfavorite) else stringResource(R.string.action_favorite_playlist),
+                                                tint = Color.White
+                                            )
+                                        }
                                     }
-                                }
+                                )
                             }
 
                             // 状态块

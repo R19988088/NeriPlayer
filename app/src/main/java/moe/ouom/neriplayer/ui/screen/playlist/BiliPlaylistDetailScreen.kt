@@ -218,6 +218,23 @@ fun BiliPlaylistDetailScreen(
             it.title.contains(searchQuery, true) || it.uploader.contains(searchQuery, true)
         }
     }
+    fun playVideo(video: BiliVideoItem) {
+        scope.launch {
+            try {
+                val info = vm.getVideoInfo(video.bvid)
+                if (info.pages.size <= 1) {
+                    val fullList = ui.videos
+                    val originalIndex = fullList.indexOfFirst { it.id == video.id }
+                    onPlayAudio(fullList, originalIndex)
+                } else {
+                    partsInfo = info
+                    showPartsSheet = true
+                }
+            } catch (e: Exception) {
+                NPLogger.e("BiliPlaylistDetail", context.getString(R.string.bili_get_parts_failed), e)
+            }
+        }
+    }
 
     AnimatedVisibility(
         visible = true,
@@ -230,7 +247,7 @@ fun BiliPlaylistDetailScreen(
         ) {
             val miniPlayerHeight = LocalMiniPlayerHeight.current
             Column {
-                if (!selectionMode) {
+                if (!selectionMode && !isPlaying) {
                     TopAppBar(
                         title = {
                             Text(
@@ -385,7 +402,46 @@ fun BiliPlaylistDetailScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         item {
-                            Header(playlist = playlist, headerData = ui.header)
+                            val header = ui.header ?: playlist
+                            PlaylistHeroHeader(
+                                title = header.title,
+                                subtitle = pluralStringResource(
+                                    R.plurals.bili_content_count,
+                                    header.count,
+                                    header.count
+                                ),
+                                cover = header.coverUrl,
+                                onBack = onBack,
+                                onPlay = { displayedVideos.firstOrNull()?.let(::playVideo) },
+                                playEnabled = displayedVideos.isNotEmpty(),
+                                height = if (isPlaying) 500.dp else 430.dp,
+                                rightControl = {
+                                    HapticIconButton(
+                                        onClick = {
+                                            scope.launch {
+                                                if (isFavorite) {
+                                                    favoriteRepo.removeFavorite(playlistId, playlistSource)
+                                                } else {
+                                                    favoriteRepo.addFavorite(
+                                                        id = playlistId,
+                                                        name = header.title,
+                                                        coverUrl = header.coverUrl,
+                                                        trackCount = header.count,
+                                                        source = playlistSource,
+                                                        songs = ui.videos.map { it.toSongItem() }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                            contentDescription = if (isFavorite) stringResource(R.string.action_unfavorite) else stringResource(R.string.action_favorite_playlist),
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+                            )
                         }
 
                         when {
@@ -448,24 +504,7 @@ fun BiliPlaylistDetailScreen(
                                                 selectedIds = setOf(item.bvid)
                                             }
                                         },
-                                        onClick = {
-                                            scope.launch {
-                                                try {
-                                                    val info = vm.getVideoInfo(item.bvid)
-                                                    if (info.pages.size <= 1) {
-                                                        val fullList = ui.videos
-                                                        val originalIndex =
-                                                            fullList.indexOfFirst { it.id == item.id }
-                                                        onPlayAudio(fullList, originalIndex)
-                                                    } else {
-                                                        partsInfo = info
-                                                        showPartsSheet = true
-                                                    }
-                                                } catch (e: Exception) {
-                                                    NPLogger.e("BiliPlaylistDetail", context.getString(R.string.bili_get_parts_failed), e)
-                                                }
-                                            }
-                                        },
+                                        onClick = { playVideo(item) },
                                         snackbarHostState = snackbarHostState
                                     )
                                 }

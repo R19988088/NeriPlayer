@@ -27,6 +27,7 @@ import android.content.Context
 import moe.ouom.neriplayer.R
 import moe.ouom.neriplayer.data.local.playlist.system.LocalFilesPlaylist
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
+import java.io.File
 
 internal fun normalizeLocalAlbumIdentity(
     album: String?,
@@ -38,6 +39,7 @@ internal fun normalizeLocalAlbumIdentity(
 }
 
 fun SongItem.displayAlbum(context: Context): String {
+    localDirectoryAlbumName()?.let { return it }
     val normalized = album.trim()
     if (normalized.isBlank()) return normalized
     return if (
@@ -49,3 +51,14 @@ fun SongItem.displayAlbum(context: Context): String {
         normalized
     }
 }
+
+fun SongItem.localDirectoryAlbumName(): String? {
+    val path = localFilePath?.takeIf { it.isNotBlank() }
+        ?: mediaUri?.takeIf { it.startsWith(File.separator) }
+        ?: return null
+    return File(path).parentFile?.name?.takeIf { it.isNotBlank() }
+}
+
+fun localDirectoryAlbumName(file: File): String =
+    file.parentFile?.name?.takeIf { it.isNotBlank() }
+        ?: LocalSongSupport.LOCAL_ALBUM_IDENTITY

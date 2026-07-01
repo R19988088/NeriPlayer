@@ -261,7 +261,7 @@ fun YouTubeMusicPlaylistDetailScreen(
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            if (!selectionMode) {
+            if (!selectionMode && !isPlaying) {
                 TopAppBar(
                     title = {
                         Text(
@@ -448,9 +448,50 @@ fun YouTubeMusicPlaylistDetailScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item {
-                        YouTubeMusicHeroHeader(
-                            playlist = resolvedPlaylist,
-                            trackCount = resolvedTrackCount
+                        PlaylistHeroHeader(
+                            title = resolvedPlaylist.title,
+                            subtitle = listOfNotNull(
+                                resolvedPlaylist.subtitle.takeIf { it.isNotBlank() },
+                                stringResource(
+                                    R.string.library_favorite_source_format,
+                                    resolvedTrackCount,
+                                    "YouTube Music"
+                                )
+                            ).joinToString(" · "),
+                            cover = resolvedPlaylist.coverUrl.takeUnless { it.isBlank() },
+                            onBack = onBack,
+                            onPlay = { if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0) },
+                            playEnabled = ui.tracks.isNotEmpty(),
+                            height = if (isPlaying) 500.dp else 430.dp,
+                            rightControl = {
+                                HapticIconButton(
+                                    onClick = {
+                                        scope.launch {
+                                            if (isFavorite) {
+                                                favoriteRepo.removeFavorite(playlistFavoriteId, "youtubeMusic")
+                                            } else {
+                                                favoriteRepo.addFavorite(
+                                                    id = playlistFavoriteId,
+                                                    name = resolvedPlaylist.title,
+                                                    coverUrl = resolvedPlaylist.coverUrl,
+                                                    trackCount = resolvedTrackCount,
+                                                    source = "youtubeMusic",
+                                                    browseId = resolvedPlaylist.browseId,
+                                                    playlistId = resolvedPlaylist.playlistId,
+                                                    subtitle = resolvedPlaylist.subtitle,
+                                                    songs = ui.tracks
+                                                )
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                        contentDescription = if (isFavorite) stringResource(R.string.action_unfavorite) else stringResource(R.string.action_favorite_playlist),
+                                        tint = Color.White
+                                    )
+                                }
+                            }
                         )
                     }
 
@@ -664,96 +705,6 @@ fun YouTubeMusicPlaylistDetailScreen(
                     )
                 },
                 onDismiss = { showDownloadManager = false }
-            )
-        }
-    }
-}
-
-@Composable
-private fun YouTubeMusicHeroHeader(
-    playlist: YouTubeMusicPlaylist,
-    trackCount: Int
-) {
-    val context = LocalContext.current
-    val coverModel = playlist.coverUrl.takeUnless { it.isBlank() } ?: "about:blank"
-    val surfaceTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.26f)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(280.dp)
-    ) {
-        AsyncImage(
-            model = offlineCachedImageRequest(context, coverModel),
-            contentDescription = playlist.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .drawWithContent {
-                    drawContent()
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.12f),
-                                Color.Black.copy(alpha = 0.38f),
-                                surfaceTint
-                            ),
-                            startY = 0f,
-                            endY = size.height
-                        )
-                    )
-                }
-        )
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = playlist.title,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.6f),
-                        offset = Offset(2f, 2f),
-                        blurRadius = 4f
-                    )
-                ),
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (playlist.subtitle.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = playlist.subtitle,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.55f),
-                            offset = Offset(2f, 2f),
-                            blurRadius = 4f
-                        )
-                    ),
-                    color = Color.White.copy(alpha = 0.94f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(
-                    R.string.library_favorite_source_format,
-                    trackCount,
-                    "YouTube Music"
-                ),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.55f),
-                        offset = Offset(2f, 2f),
-                        blurRadius = 4f
-                    )
-                ),
-                color = Color.White.copy(alpha = 0.88f)
             )
         }
     }

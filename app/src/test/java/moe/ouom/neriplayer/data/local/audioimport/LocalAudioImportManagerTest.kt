@@ -193,8 +193,9 @@ class LocalAudioImportManagerTest {
     }
 
     @Test
-    fun `buildQuickImportedSong keeps cheap query metadata and nearby cover`() {
-        val importedFile = tempFolder.newFile("cover_demo.mp3")
+    fun `buildQuickImportedSong uses parent directory as local album`() {
+        val albumDir = tempFolder.newFolder("Directory Album")
+        val importedFile = File(albumDir, "cover_demo.mp3").apply { writeText("audio") }
         val nearbyCover = File(importedFile.parentFile, "cover_demo.jpg").apply {
             writeText("cover")
         }
@@ -215,7 +216,7 @@ class LocalAudioImportManagerTest {
 
         assertEquals("Quick Title", song.name)
         assertEquals("Quick Artist", song.artist)
-        assertEquals("Quick Album", song.album)
+        assertEquals("Directory Album", song.album)
         assertEquals(123_000L, song.durationMs)
         assertEquals(nearbyCover.toURI().toString(), song.coverUrl)
         assertEquals(nearbyCover.toURI().toString(), song.originalCoverUrl)
@@ -253,7 +254,7 @@ class LocalAudioImportManagerTest {
         assertEquals(quickSong.localFilePath, merged.localFilePath)
         assertEquals("Quick Title", merged.name)
         assertEquals("Detailed Artist", merged.artist)
-        assertEquals("Detailed Album", merged.album)
+        assertEquals(quickSong.album, merged.album)
         assertEquals(245_000L, merged.durationMs)
         assertEquals("file:///covers/demo.jpg", merged.coverUrl)
         assertEquals("[00:00.00]demo", merged.matchedLyric)
