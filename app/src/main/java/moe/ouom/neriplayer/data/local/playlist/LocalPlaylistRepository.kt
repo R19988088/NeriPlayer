@@ -110,6 +110,12 @@ class LocalPlaylistRepository private constructor(private val context: Context) 
         loadFromDisk()
     }
 
+    suspend fun refreshFromDisk() {
+        withContext(Dispatchers.IO) {
+            loadFromDisk()
+        }
+    }
+
     private fun loadFromDisk() {
         val loaded = try {
             if (!file.exists()) {

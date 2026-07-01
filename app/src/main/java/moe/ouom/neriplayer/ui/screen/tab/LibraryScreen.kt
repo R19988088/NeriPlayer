@@ -257,7 +257,14 @@ fun LibraryScreen(
     }
 
     LaunchedEffect(Unit) {
+        vm.refreshLocalPlaylists()
         vm.refreshYouTubeMusicPlaylists()
+    }
+
+    LaunchedEffect(pagerState.currentPage, orderedTabs) {
+        if (orderedTabs.getOrNull(pagerState.currentPage) == LibraryTab.LOCAL) {
+            vm.refreshLocalPlaylists()
+        }
     }
 
     Column(

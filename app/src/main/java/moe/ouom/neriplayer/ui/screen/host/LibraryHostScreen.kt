@@ -91,7 +91,9 @@ sealed class LibrarySelectedItem : Parcelable {
 @Composable
 fun LibraryHostScreen(
     onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    onDetailSongClick: (List<SongItem>, Int) -> Unit = onSongClick,
     onPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = { _, _, _ -> },
+    onDetailPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = onPlayParts,
     onOpenRecent: () -> Unit,
     onOpenStats: () -> Unit = {}
 ) {
@@ -242,13 +244,13 @@ fun LibraryHostScreen(
                             playlistId = current.playlistId,
                             onBack = { selected = null },
                             onDeleted = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                     is LibrarySelectedItem.NeteaseAlbum -> {
                         NeteaseAlbumDetailScreen(
                             onBack = { selected = null },
-                            onSongClick = onSongClick,
+                            onSongClick = onDetailSongClick,
                             album = current.album
                         )
                     }
@@ -256,14 +258,14 @@ fun LibraryHostScreen(
                         NeteasePlaylistDetailScreen(
                             playlist = current.playlist,
                             onBack = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                     is LibrarySelectedItem.YouTubeMusic -> {
                         YouTubeMusicPlaylistDetailScreen(
                             playlist = current.playlist,
                             onBack = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                     is LibrarySelectedItem.Bili -> {
@@ -273,7 +275,7 @@ fun LibraryHostScreen(
                             onPlayAudio = { videos, index ->
                                 PlayerManager.playBiliVideoAsAudio(videos, index)
                             },
-                            onPlayParts = onPlayParts
+                            onPlayParts = onDetailPlayParts
                         )
                     }
                 }

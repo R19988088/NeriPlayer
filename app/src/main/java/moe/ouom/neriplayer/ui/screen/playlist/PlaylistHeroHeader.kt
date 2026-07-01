@@ -1,10 +1,10 @@
 package moe.ouom.neriplayer.ui.screen.playlist
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,12 +16,16 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -40,8 +44,34 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import moe.ouom.neriplayer.R
+import moe.ouom.neriplayer.util.CoverArtColorCache
 import moe.ouom.neriplayer.util.HapticIconButton
+import moe.ouom.neriplayer.util.adjustedAccentColorArgb
 import moe.ouom.neriplayer.util.offlineCachedImageRequest
+
+@Composable
+internal fun rememberPlaylistCoverTint(cover: Any?): Color {
+    val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
+    val fallback = MaterialTheme.colorScheme.surface
+    val coverUrl = cover as? String
+    var target by remember(coverUrl, isDark, fallback) { mutableStateOf(fallback) }
+
+    LaunchedEffect(coverUrl, isDark, fallback) {
+        val url = coverUrl?.takeIf { it.isNotBlank() }
+        if (url == null) {
+            target = fallback
+            return@LaunchedEffect
+        }
+        val sample = CoverArtColorCache.peek(url) ?: CoverArtColorCache.preload(context, url)
+        target = sample
+            ?.let { Color(adjustedAccentColorArgb(it.baseColorArgb, isDark)) }
+            ?: fallback
+    }
+
+    val animated by animateColorAsState(target, tween(220), label = "playlist-cover-tint")
+    return animated
+}
 
 @Composable
 internal fun PlaylistHeroHeader(
@@ -52,9 +82,7 @@ internal fun PlaylistHeroHeader(
     onPlay: () -> Unit,
     playEnabled: Boolean,
     modifier: Modifier = Modifier,
-    height: Dp = 430.dp,
-    leftControl: @Composable (() -> Unit)? = null,
-    rightControl: @Composable (() -> Unit)? = null
+    height: Dp = 430.dp
 ) {
     val context = LocalContext.current
     val model = cover ?: "about:blank"
@@ -149,45 +177,22 @@ internal fun PlaylistHeroHeader(
             )
         }
 
-        Row(
+        HapticIconButton(
+            onClick = onPlay,
+            enabled = playEnabled,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 28.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                .padding(bottom = 28.dp)
+                .size(76.dp)
+                .clip(RoundedCornerShape(50))
+                .background(Color.White)
         ) {
-            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                if (leftControl != null) {
-                    leftControl()
-                } else {
-                    Icon(
-                        Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.size(22.dp))
-            HapticIconButton(
-                onClick = onPlay,
-                enabled = playEnabled,
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White)
-            ) {
-                Icon(
-                    Icons.Filled.PlayArrow,
-                    contentDescription = stringResource(R.string.player_play_all),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(42.dp)
-                )
-            }
-            Spacer(Modifier.size(22.dp))
-            Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
-                rightControl?.invoke()
-            }
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = stringResource(R.string.player_play_all),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(42.dp)
+            )
         }
     }
 }

@@ -80,7 +80,8 @@ fun HomeHostScreen(
     showRadarCard: Boolean = true,
     showRecommendedCard: Boolean = true,
     offlineMode: Boolean = false,
-    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
+    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    onDetailSongClick: (List<SongItem>, Int) -> Unit = onSongClick
 ) {
     var selected by rememberSaveable(stateSaver = homeSelectedItemSaver) {
         mutableStateOf(null)
@@ -149,14 +150,14 @@ fun HomeHostScreen(
                         NeteaseAlbumDetailScreen(
                             album = current.album,
                             onBack = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                     is HomeSelectedItem.Netease -> {
                         NeteasePlaylistDetailScreen(
                             playlist = current.playlist,
                             onBack = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                     is HomeSelectedItem.Local -> {
@@ -164,7 +165,7 @@ fun HomeHostScreen(
                             playlistId = current.playlistId,
                             onBack = { selected = null },
                             onDeleted = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                     is HomeSelectedItem.Bili -> {
@@ -183,7 +184,7 @@ fun HomeHostScreen(
                         YouTubeMusicPlaylistDetailScreen(
                             playlist = current.playlist,
                             onBack = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                 }

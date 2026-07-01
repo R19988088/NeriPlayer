@@ -256,106 +256,13 @@ fun YouTubeMusicPlaylistDetailScreen(
             songs = ui.tracks
         )
     }
+    val detailBackground = rememberPlaylistCoverTint(resolvedPlaylist.coverUrl.takeUnless { it.isBlank() })
 
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = detailBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            if (!selectionMode && !isPlaying) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = resolvedPlaylist.title,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    navigationIcon = {
-                        HapticIconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(R.string.action_back)
-                            )
-                        }
-                    },
-                    actions = {
-                        HapticIconButton(
-                            onClick = {
-                                showSearch = !showSearch
-                                if (!showSearch) {
-                                    searchQuery = ""
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Search,
-                                contentDescription = stringResource(R.string.cd_search_songs)
-                            )
-                        }
-                        HapticIconButton(
-                            onClick = {
-                                scope.launch {
-                                    if (isFavorite) {
-                                        favoriteRepo.removeFavorite(playlistFavoriteId, "youtubeMusic")
-                                    } else {
-                                        favoriteRepo.addFavorite(
-                                            id = playlistFavoriteId,
-                                            name = resolvedPlaylist.title,
-                                            coverUrl = resolvedPlaylist.coverUrl,
-                                            trackCount = resolvedTrackCount,
-                                            source = "youtubeMusic",
-                                            browseId = resolvedPlaylist.browseId,
-                                            playlistId = resolvedPlaylist.playlistId,
-                                            subtitle = resolvedPlaylist.subtitle,
-                                            songs = ui.tracks
-                                        )
-                                    }
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = if (isFavorite) {
-                                    Icons.Filled.Favorite
-                                } else {
-                                    Icons.Outlined.FavoriteBorder
-                                },
-                                contentDescription = if (isFavorite) {
-                                    stringResource(R.string.action_unfavorite)
-                                } else {
-                                    stringResource(R.string.action_favorite_playlist)
-                                },
-                                tint = if (isFavorite) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                        }
-                        if (ui.tracks.isNotEmpty()) {
-                            HapticIconButton(onClick = { onSongClick(ui.tracks, 0) }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.PlaylistPlay,
-                                    contentDescription = stringResource(R.string.player_play_all)
-                                )
-                            }
-                        }
-                        if (hasDownloadManagerEntry) {
-                            HapticIconButton(onClick = { showDownloadManager = true }) {
-                                Icon(
-                                    Icons.Outlined.Download,
-                                    contentDescription = stringResource(R.string.cd_download_manager),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    },
-                    windowInsets = WindowInsets.statusBars,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface
-                    )
-                )
-            } else {
+            if (selectionMode) {
                 val allSelected = selectedKeys.size == ui.tracks.size && ui.tracks.isNotEmpty()
                 TopAppBar(
                     title = {
@@ -462,36 +369,7 @@ fun YouTubeMusicPlaylistDetailScreen(
                             onBack = onBack,
                             onPlay = { if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0) },
                             playEnabled = ui.tracks.isNotEmpty(),
-                            height = if (isPlaying) 500.dp else 430.dp,
-                            rightControl = {
-                                HapticIconButton(
-                                    onClick = {
-                                        scope.launch {
-                                            if (isFavorite) {
-                                                favoriteRepo.removeFavorite(playlistFavoriteId, "youtubeMusic")
-                                            } else {
-                                                favoriteRepo.addFavorite(
-                                                    id = playlistFavoriteId,
-                                                    name = resolvedPlaylist.title,
-                                                    coverUrl = resolvedPlaylist.coverUrl,
-                                                    trackCount = resolvedTrackCount,
-                                                    source = "youtubeMusic",
-                                                    browseId = resolvedPlaylist.browseId,
-                                                    playlistId = resolvedPlaylist.playlistId,
-                                                    subtitle = resolvedPlaylist.subtitle,
-                                                    songs = ui.tracks
-                                                )
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                        contentDescription = if (isFavorite) stringResource(R.string.action_unfavorite) else stringResource(R.string.action_favorite_playlist),
-                                        tint = Color.White
-                                    )
-                                }
-                            }
+                            height = if (isPlaying) 500.dp else 430.dp
                         )
                     }
 

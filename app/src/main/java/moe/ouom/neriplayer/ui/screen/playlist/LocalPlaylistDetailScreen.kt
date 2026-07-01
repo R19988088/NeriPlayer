@@ -814,8 +814,9 @@ fun LocalPlaylistDetailScreen(
                 return@Surface
             }
 
+            val detailBackground = rememberPlaylistCoverTint(headerCover)
             Scaffold(
-                containerColor = Color.Transparent,
+                containerColor = detailBackground,
                 snackbarHost = { 
                     SnackbarHost(
                         hostState = snackbarHostState,
@@ -823,112 +824,7 @@ fun LocalPlaylistDetailScreen(
                     ) 
                 },
                 topBar = {
-                    if (!selectionMode && !isPlaying) {
-                        TopAppBar(
-                            title = {
-                                val displayName = when {
-                                    isFavorites -> stringResource(R.string.favorite_my_music)
-                                    isLocalFilesPlaylist -> stringResource(R.string.local_files)
-                                    else -> playlist.name
-                                }
-                                Text(
-                                    displayName,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            navigationIcon = {
-                                HapticIconButton(onClick = onBack) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(R.string.action_back)
-                                    )
-                                }
-                            },
-                            actions = {
-                                HapticIconButton(onClick = {
-                                    showSearch = !showSearch
-                                    if (!showSearch) {
-                                        searchQuery = ""
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                    }
-                                }) { Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.cd_search_songs)) }
-                                
-                                if (hasDownloadManagerEntry) {
-                                    HapticIconButton(
-                                        onClick = { showDownloadManager = true }
-                                    ) {
-                                        Icon(
-                                            Icons.Outlined.Download,
-                                            contentDescription = stringResource(R.string.cd_download_manager),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                                
-                                if (isLocalFilesPlaylist) {
-                                    HapticIconButton(onClick = {
-                                        val hasPermission = ContextCompat.checkSelfPermission(
-                                            context,
-                                            requiredAudioPermission
-                                        ) == PackageManager.PERMISSION_GRANTED
-                                        if (hasPermission) {
-                                            startDeviceAudioScan()
-                                        } else {
-                                            audioPermissionLauncher.launch(requiredAudioPermission)
-                                        }
-                                    }, enabled = !scanPreviewState.isScanning) {
-                                        Icon(
-                                            Icons.Outlined.LibraryMusic,
-                                            contentDescription = stringResource(R.string.download_scan_local)
-                                        )
-                                    }
-                                }
-                                if (isFavorites) {
-                                    HapticIconButton(
-                                        onClick = { requestNeteaseSync() },
-                                        enabled = !syncInProgress
-                                    ) {
-                                        if (syncInProgress) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(20.dp),
-                                                strokeWidth = 2.dp
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Outlined.Sync,
-                                                contentDescription = stringResource(R.string.local_playlist_sync_netease_liked)
-                                            )
-                                        }
-                                    }
-                                }
-                                
-                                if (!isSystemPlaylist) {
-                                    HapticIconButton(onClick = {
-                                        renameText = TextFieldValue(playlist.name)
-                                        renameError = null
-                                        showRename = true
-                                    }) {
-                                        Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.local_playlist_rename))
-                                    }
-                                    HapticIconButton(onClick = {
-                                        showDeletePlaylistConfirm = true
-                                    }) {
-                                        Icon(
-                                            Icons.Filled.Delete,
-                                            contentDescription = stringResource(R.string.local_playlist_delete)
-                                        )
-                                    }
-                                }
-                            },
-                            windowInsets = WindowInsets.statusBars,
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.Transparent,
-                                scrolledContainerColor = MaterialTheme.colorScheme.surface
-                            )
-                        )
-                    } else {
+                    if (selectionMode) {
                         val displayedSongKeys = displayedSongs.map { it.stableKey() }.toSet()
                         val allSelected = areDisplayedSongKeysSelected(
                             selectedKeys = selectedKeysState.value,
@@ -1054,8 +950,7 @@ fun LocalPlaylistDetailScreen(
                                     onBack = onBack,
                                     onPlay = { if (baseQueue.isNotEmpty()) onSongClick(baseQueue, 0) },
                                     playEnabled = baseQueue.isNotEmpty(),
-                                    height = if (isPlaying) 500.dp else headerHeight,
-                                    rightControl = null
+                                    height = if (isPlaying) 500.dp else headerHeight
                                 )
                             }
 

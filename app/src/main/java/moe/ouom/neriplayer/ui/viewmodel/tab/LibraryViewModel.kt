@@ -314,6 +314,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun refreshLocalPlaylists() {
+        viewModelScope.launch { localRepo.refreshFromDisk() }
+    }
+
     fun createLocalPlaylist(name: String) {
         viewModelScope.launch { localRepo.createPlaylist(name) }
     }

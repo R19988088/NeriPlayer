@@ -241,82 +241,14 @@ fun BiliPlaylistDetailScreen(
         enter = fadeIn() + slideInVertically { it / 6 },
         exit = fadeOut() + slideOutVertically { it / 6 }
     ) {
+        val detailBackground = rememberPlaylistCoverTint((ui.header ?: playlist).coverUrl)
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = Color.Transparent
+            color = detailBackground
         ) {
             val miniPlayerHeight = LocalMiniPlayerHeight.current
             Column {
-                if (!selectionMode && !isPlaying) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = ui.header?.title ?: playlist.title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        navigationIcon = {
-                            HapticIconButton(onClick = onBack) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                            }
-                        },
-                        actions = {
-                            HapticIconButton(onClick = {
-                                showSearch = !showSearch
-                                if (!showSearch) searchQuery = ""
-                            }) { Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_video)) }
-
-                            // 收藏按钮
-                            HapticIconButton(onClick = {
-                                scope.launch {
-                                    val header = ui.header ?: playlist
-                                    if (isFavorite) {
-                                        favoriteRepo.removeFavorite(playlistId, playlistSource)
-                                    } else {
-                                        favoriteRepo.addFavorite(
-                                            id = playlistId,
-                                            name = header.title,
-                                            coverUrl = header.coverUrl,
-                                            trackCount = header.count,
-                                            source = playlistSource,
-                                            songs = ui.videos.map { it.toSongItem() }
-                                        )
-                                    }
-                                }
-                            }) {
-                                Icon(
-                                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                    contentDescription = if (isFavorite) {
-                                        stringResource(R.string.action_unfavorite)
-                                    } else {
-                                        stringResource(R.string.action_favorite_playlist)
-                                    },
-                                    tint = if (isFavorite) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    }
-                                )
-                            }
-
-                            if (hasDownloadManagerEntry) {
-                                HapticIconButton(onClick = { showDownloadManager = true }) {
-                                    Icon(
-                                        Icons.Outlined.Download,
-                                        contentDescription = stringResource(R.string.download_manager),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        },
-                        windowInsets = WindowInsets.statusBars,
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = MaterialTheme.colorScheme.surface
-                        )
-                    )
-                } else {
+                if (selectionMode) {
                     val allSelected = selectedIds.size == ui.videos.size && ui.videos.isNotEmpty()
                     TopAppBar(
                     title = {
@@ -414,33 +346,7 @@ fun BiliPlaylistDetailScreen(
                                 onBack = onBack,
                                 onPlay = { displayedVideos.firstOrNull()?.let(::playVideo) },
                                 playEnabled = displayedVideos.isNotEmpty(),
-                                height = if (isPlaying) 500.dp else 430.dp,
-                                rightControl = {
-                                    HapticIconButton(
-                                        onClick = {
-                                            scope.launch {
-                                                if (isFavorite) {
-                                                    favoriteRepo.removeFavorite(playlistId, playlistSource)
-                                                } else {
-                                                    favoriteRepo.addFavorite(
-                                                        id = playlistId,
-                                                        name = header.title,
-                                                        coverUrl = header.coverUrl,
-                                                        trackCount = header.count,
-                                                        source = playlistSource,
-                                                        songs = ui.videos.map { it.toSongItem() }
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                            contentDescription = if (isFavorite) stringResource(R.string.action_unfavorite) else stringResource(R.string.action_favorite_playlist),
-                                            tint = Color.White
-                                        )
-                                    }
-                                }
+                                height = if (isPlaying) 500.dp else 430.dp
                             )
                         }
 

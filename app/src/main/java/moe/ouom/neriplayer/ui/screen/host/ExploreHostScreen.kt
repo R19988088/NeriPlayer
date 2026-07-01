@@ -64,6 +64,7 @@ private sealed class ExploreSelectedItem {
 fun ExploreHostScreen(
     offlineMode: Boolean = false,
     onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    onDetailSongClick: (List<SongItem>, Int) -> Unit = onSongClick,
     onSongPlayPreservingQueue: (SongItem) -> Unit = {},
     onSongPlayNext: (SongItem) -> Unit = {},
     onSongAddToQueueEnd: (SongItem) -> Unit = {},
@@ -138,14 +139,14 @@ fun ExploreHostScreen(
                         NeteasePlaylistDetailScreen(
                             playlist = current.playlist,
                             onBack = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                     is ExploreSelectedItem.YouTubeMusic -> {
                         YouTubeMusicPlaylistDetailScreen(
                             playlist = current.playlist,
                             onBack = { selected = null },
-                            onSongClick = onSongClick
+                            onSongClick = onDetailSongClick
                         )
                     }
                 }

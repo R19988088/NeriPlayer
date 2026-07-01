@@ -339,6 +339,7 @@ fun DetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val headerHeight: Dp = 280.dp
+    val detailBackground = rememberPlaylistCoverTint(ui.header?.coverUrl.takeUnless { it.isNullOrBlank() })
 
     AnimatedVisibility(
         visible = true,
@@ -348,79 +349,12 @@ fun DetailScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
-                color = Color.Transparent
+                color = detailBackground
             ) {
                 val miniPlayerHeight = LocalMiniPlayerHeight.current
                 Column {
                     // 顶部栏：普通模式 / 多选模式
-                    if (!selectionMode && !isPlaying) {
-                        TopAppBar(
-                            title = {
-                                Text(
-                                    text = ui.header?.name ?: "Playlist Shuffling",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            navigationIcon = {
-                                HapticIconButton(onClick = onBack) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(R.string.cd_back)
-                                    )
-                                }
-                            },
-                            actions = {
-                                HapticIconButton(onClick = {
-                                    showSearch = !showSearch
-                                    if (!showSearch) searchQuery = ""
-                                }) { Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.cd_search_songs)) }
-
-                                // 收藏按钮
-                                HapticIconButton(onClick = {
-                                    scope.launch {
-                                        if (isFavorite) {
-                                            favoriteRepo.removeFavorite(playlistId, playlistSource)
-                                        } else {
-                                            ui.header?.let { header ->
-                                                favoriteRepo.addFavorite(
-                                                    id = playlistId,
-                                                    name = header.name,
-                                                    coverUrl = header.coverUrl,
-                                                    trackCount = header.trackCount,
-                                                    source = playlistSource,
-                                                    songs = ui.tracks
-                                                )
-                                            }
-                                        }
-                                    }
-                                }) {
-                                    Icon(
-                                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                        contentDescription = if (isFavorite) stringResource(R.string.action_unfavorite) else stringResource(R.string.action_favorite_playlist),
-                                        tint = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-
-                                if (hasDownloadManagerEntry) {
-                                    HapticIconButton(onClick = { showDownloadManager = true }) {
-                                        Icon(
-                                            Icons.Outlined.Download,
-                                            contentDescription = stringResource(R.string.cd_download_manager),
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            },
-                            windowInsets = WindowInsets.statusBars,
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.Transparent,
-                                scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                                titleContentColor = MaterialTheme.colorScheme.onSurface,
-                                navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                            )
-                        )
-                    } else {
+                    if (selectionMode) {
                         val allSelected =
                             selectedIds.size == ui.tracks.size && ui.tracks.isNotEmpty()
                         TopAppBar(
@@ -536,35 +470,7 @@ fun DetailScreen(
                                     onBack = onBack,
                                     onPlay = { if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0) },
                                     playEnabled = ui.tracks.isNotEmpty(),
-                                    height = if (isPlaying) 500.dp else headerHeight,
-                                    rightControl = {
-                                        HapticIconButton(
-                                            onClick = {
-                                                scope.launch {
-                                                    if (isFavorite) {
-                                                        favoriteRepo.removeFavorite(playlistId, playlistSource)
-                                                    } else {
-                                                        ui.header?.let { header ->
-                                                            favoriteRepo.addFavorite(
-                                                                id = playlistId,
-                                                                name = header.name,
-                                                                coverUrl = header.coverUrl,
-                                                                trackCount = header.trackCount,
-                                                                source = playlistSource,
-                                                                songs = ui.tracks
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                                contentDescription = if (isFavorite) stringResource(R.string.action_unfavorite) else stringResource(R.string.action_favorite_playlist),
-                                                tint = Color.White
-                                            )
-                                        }
-                                    }
+                                    height = if (isPlaying) 500.dp else headerHeight
                                 )
                             }
 

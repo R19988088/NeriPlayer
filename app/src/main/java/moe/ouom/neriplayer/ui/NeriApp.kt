@@ -968,6 +968,11 @@ private fun NeriAppContent(
         )
     }
 
+    fun playSongsInline(songs: List<SongItem>, index: Int) {
+        PlayerManager.playPlaylist(songs, index)
+        scheduleAudioServiceStart("play_songs_inline", true)
+    }
+
     fun playSongPreservingQueueAndOpenNowPlaying(song: SongItem) {
         showNowPlaying = true
         PlayerManager.replaceCurrentInQueueAndPlay(song)
@@ -1002,6 +1007,12 @@ private fun NeriAppContent(
         ensureAudioServiceStarted(source = "play_bili_audio_and_open_now_playing")
     }
 
+    fun playBiliAudioInline(videos: List<BiliVideoItem>, index: Int) {
+        NPLogger.d("NERI-App", "Playing audio inline from Bili video: ${videos[index].title}")
+        PlayerManager.playBiliVideoAsAudio(videos, index)
+        ensureAudioServiceStarted(source = "play_bili_audio_inline")
+    }
+
     fun playBiliPartsAndOpenNowPlaying(
         videoInfo: BiliClient.VideoBasicInfo,
         index: Int,
@@ -1011,6 +1022,16 @@ private fun NeriAppContent(
         NPLogger.d("NERI-App", "Playing parts from Bili video: ${videoInfo.title}")
         PlayerManager.playBiliVideoParts(videoInfo, index, coverUrl)
         ensureAudioServiceStarted(source = "play_bili_parts_and_open_now_playing")
+    }
+
+    fun playBiliPartsInline(
+        videoInfo: BiliClient.VideoBasicInfo,
+        index: Int,
+        coverUrl: String
+    ) {
+        NPLogger.d("NERI-App", "Playing parts inline from Bili video: ${videoInfo.title}")
+        PlayerManager.playBiliVideoParts(videoInfo, index, coverUrl)
+        ensureAudioServiceStarted(source = "play_bili_parts_inline")
     }
 
     CompositionLocalProvider(LocalDensity provides finalDensity) {
@@ -1211,7 +1232,8 @@ private fun NeriAppContent(
                                         showRadarCard = showHomeRadarCard,
                                         showRecommendedCard = showHomeRecommendedCard,
                                         offlineMode = offlineMode,
-                                        onSongClick = ::playSongsAndOpenNowPlaying
+                                        onSongClick = ::playSongsAndOpenNowPlaying,
+                                        onDetailSongClick = ::playSongsInline
                                     )
                                 }
 
@@ -1236,7 +1258,7 @@ private fun NeriAppContent(
                                     NeteasePlaylistDetailScreen(
                                         playlist = playlist,
                                         onBack = { navController.popBackStack() },
-                                        onSongClick = ::playSongsAndOpenNowPlaying
+                                        onSongClick = ::playSongsInline
                                     )
                                 }
 
@@ -1261,7 +1283,7 @@ private fun NeriAppContent(
                                     NeteaseAlbumDetailScreen(
                                         album = album,
                                         onBack = { navController.popBackStack() },
-                                        onSongClick = ::playSongsAndOpenNowPlaying
+                                        onSongClick = ::playSongsInline
                                     )
                                 }
                                 
@@ -1286,8 +1308,8 @@ private fun NeriAppContent(
                                     BiliPlaylistDetailScreen(
                                         playlist = playlist,
                                         onBack = { navController.popBackStack() },
-                                        onPlayAudio = ::playBiliAudioAndOpenNowPlaying,
-                                        onPlayParts = ::playBiliPartsAndOpenNowPlaying
+                                        onPlayAudio = ::playBiliAudioInline,
+                                        onPlayParts = ::playBiliPartsInline
                                     )
                                 }
 
@@ -1330,6 +1352,7 @@ private fun NeriAppContent(
                                         onSongPlayPreservingQueue = ::playSongPreservingQueueAndOpenNowPlaying,
                                         onSongPlayNext = ::addSongToQueueNextFromSearch,
                                         onSongAddToQueueEnd = ::addSongToQueueEndFromSearch,
+                                        onDetailSongClick = ::playSongsInline,
                                         onPlayParts = ::playBiliPartsAndOpenNowPlaying
                                     )
                                 }
@@ -1369,7 +1392,9 @@ private fun NeriAppContent(
                                 ) {
                                     LibraryHostScreen(
                                         onSongClick = ::playSongsAndOpenNowPlaying,
+                                        onDetailSongClick = ::playSongsInline,
                                         onPlayParts = ::playBiliPartsAndOpenNowPlaying,
+                                        onDetailPlayParts = ::playBiliPartsInline,
                                         onOpenRecent = { navController.navigate(Destinations.Recent.route) },
                                         onOpenStats = { navController.navigate(Destinations.PlaybackStats.route) }
                                     )
@@ -1394,7 +1419,7 @@ private fun NeriAppContent(
                                         playlistId = id,
                                         onBack = { navController.popBackStack() },
                                         onDeleted = { navController.popBackStack() },
-                                        onSongClick = ::playSongsAndOpenNowPlaying
+                                        onSongClick = ::playSongsInline
                                     )
                                 }
 
