@@ -219,8 +219,15 @@ jobs:
           <b>提交者:</b> <code>${commit_author}</code>
           <a href=\"${commit_url}\">查看详情</a>"
           
-          curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
+          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+            echo "Telegram secrets are missing; skip sending APK."
+            exit 0
+          fi
+
+          response=$(curl -sS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
             -F chat_id="${CHAT_ID}" \
             -F document=@"${APK_PATH}" \
             -F caption="${caption}" \
-            -F parse_mode=HTML
+            -F parse_mode=HTML)
+          echo "$response"
+          echo "$response" | grep -q '"ok":true'
