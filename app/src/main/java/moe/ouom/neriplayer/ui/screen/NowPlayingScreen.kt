@@ -417,7 +417,8 @@ fun NowPlayingScreen(
 
     var showLyricsScreen by remember { mutableStateOf(false) }
     var showCoverMenu by remember { mutableStateOf(false) }
-    var showMoreOptions by remember { mutableStateOf(false) }
+    var showTopMoreOptions by remember { mutableStateOf(false) }
+    var showAlbumEmptyDialog by remember { mutableStateOf(false) }
     var showSongNameMenu by remember { mutableStateOf(false) }
     var showArtistMenu by remember { mutableStateOf(false) }
     var showQualitySwitchDialog by remember { mutableStateOf(false) }
@@ -775,6 +776,20 @@ fun NowPlayingScreen(
                                 )
                             }
 
+                            HapticIconButton(
+                                onClick = { showTopMoreOptions = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(48.dp)
+                                    .zIndex(1f)
+                            ) {
+                                Icon(
+                                    Icons.Filled.MoreVert,
+                                    contentDescription = stringResource(R.string.action_more),
+                                    tint = nowPlayingText
+                                )
+                            }
+
                             DropdownMenu(
                                 expanded = showCoverMenu,
                                 onDismissRequest = { showCoverMenu = false }
@@ -798,7 +813,27 @@ fun NowPlayingScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         HapticIconButton(
-                            onClick = { showMoreOptions = true },
+                            onClick = {
+                                val song = currentSong
+                                if (
+                                    song != null &&
+                                    song.albumId != 0L &&
+                                    song.album.startsWith(PlayerManager.NETEASE_SOURCE_TAG)
+                                ) {
+                                    val albumName = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG)
+                                    onEnterAlbum(
+                                        AlbumSummary(
+                                            id = song.albumId,
+                                            name = albumName,
+                                            size = 0,
+                                            picUrl = song.displayCoverUrl() ?: ""
+                                        )
+                                    )
+                                    onNavigateUp()
+                                } else {
+                                    showAlbumEmptyDialog = true
+                                }
+                            },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
@@ -851,14 +886,14 @@ fun NowPlayingScreen(
                         }
                     }
 
-                    if (showMoreOptions && currentSong != null) {
+                    if (showTopMoreOptions && currentSong != null) {
                         MoreOptionsSheet(
                             viewModel = nowPlayingViewModel,
                             originalSong = currentSong!!,
                             queue = displayedQueue,
                             displayedLyrics = lyrics,
                             displayedTranslatedLyrics = translatedLyrics,
-                            onDismiss = { showMoreOptions = false },
+                            onDismiss = { showTopMoreOptions = false },
                             onShowSongDetails = { detailSong = it },
                             onEnterAlbum = onEnterAlbum,
                             onNavigateUp = onNavigateUp,
@@ -866,7 +901,21 @@ fun NowPlayingScreen(
                             lyricFontScale = lyricFontScale,
                             onLyricFontScaleChange = onLyricFontScaleChange,
                             currentPlaybackAudioInfo = currentPlaybackAudioInfo,
-                            onShowQualitySwitch = { showQualitySwitchDialog = true }
+                            onShowQualitySwitch = { showQualitySwitchDialog = true },
+                            showSongInfoAction = false
+                        )
+                    }
+
+                    if (showAlbumEmptyDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showAlbumEmptyDialog = false },
+                            title = { Text(stringResource(R.string.common_album_detail)) },
+                            text = { Text(stringResource(R.string.common_empty)) },
+                            confirmButton = {
+                                HapticTextButton(onClick = { showAlbumEmptyDialog = false }) {
+                                    Text(stringResource(R.string.action_close))
+                                }
+                            }
                         )
                     }
 
@@ -1119,7 +1168,8 @@ fun MoreOptionsSheet(
     lyricFontScale: Float,
     onLyricFontScaleChange: (Float) -> Unit,
     currentPlaybackAudioInfo: PlaybackAudioInfo? = null,
-    onShowQualitySwitch: () -> Unit = {}
+    onShowQualitySwitch: () -> Unit = {},
+    showSongInfoAction: Boolean = true
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showSearchView by remember { mutableStateOf(false) }
@@ -1241,11 +1291,13 @@ fun MoreOptionsSheet(
                             .verticalScroll(mainScrollState)
                             .padding(bottom = 32.dp)
                     ) {
-                        ListItem(
-                            headlineContent = { Text(stringResource(R.string.music_get_info)) },
-                            leadingContent = { Icon(Icons.Outlined.Info, null) },
-                            modifier = Modifier.clickable { showSearchView = true }
-                        )
+                        if (showSongInfoAction) {
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.music_get_info)) },
+                                leadingContent = { Icon(Icons.Outlined.Info, null) },
+                                modifier = Modifier.clickable { showSearchView = true }
+                            )
+                        }
                         ListItem(
                             headlineContent = { Text(stringResource(R.string.music_edit_info)) },
                             leadingContent = { Icon(Icons.Outlined.Edit, null) },

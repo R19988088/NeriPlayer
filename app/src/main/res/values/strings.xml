@@ -767,6 +767,7 @@
     <string name="common_other_modes">其他模式</string>
     <string name="common_drag_handle">拖拽手柄</string>
     <string name="common_album_detail">专辑详情</string>
+    <string name="common_empty">空空如也</string>
 
     <!-- Settings / General -->
     <string name="login_methods">浏览器/验证码/Cookie 导入</string>

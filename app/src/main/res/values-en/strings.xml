@@ -767,6 +767,7 @@
     <string name="common_other_modes">Other Modes</string>
     <string name="common_drag_handle">Drag Handle</string>
     <string name="common_album_detail">Album Details</string>
+    <string name="common_empty">Empty</string>
 
     <!-- Settings / General -->
     <string name="login_methods">Browser/SMS/Cookie Import</string>

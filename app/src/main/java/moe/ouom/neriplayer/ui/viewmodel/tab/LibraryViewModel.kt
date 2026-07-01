@@ -73,6 +73,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val biliClient = AppContainer.biliClient
     private val youtubeAuthRepo = AppContainer.youtubeAuthRepo
     private val youtubeMusicClient = AppContainer.youtubeMusicClient
+    private var neteaseAlbumsLoaded = false
+    private var neteasePodcastsLoaded = false
 
 
     private val _uiState = MutableStateFlow(
@@ -111,6 +113,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 if (!cookies["MUSIC_U"].isNullOrBlank()) {
                     refreshNeteaseAlbums()
                 } else {
+                    neteaseAlbumsLoaded = false
                     _uiState.value = _uiState.value.copy(
                         neteaseAlbums = emptyList(),
                         neteaseError = null
@@ -126,6 +129,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 if (!cookies["MUSIC_U"].isNullOrBlank()) {
                     refreshNeteasePodcasts()
                 } else {
+                    neteasePodcastsLoaded = false
                     _uiState.value = _uiState.value.copy(
                         neteasePodcasts = emptyList(),
                         neteaseError = null
@@ -290,11 +294,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
     
     fun refreshNeteaseAlbums() {
+        if (neteaseAlbumsLoaded) return
         viewModelScope.launch {
             try {
                 val uid = withContext(Dispatchers.IO) { neteaseClient.getCurrentUserId() }
                 val raw = withContext(Dispatchers.IO) { neteaseClient.getUserStaredAlbums(uid) }
                 val mapped = parseNeteaseAlbums(raw)
+                neteaseAlbumsLoaded = true
                 _uiState.value = _uiState.value.copy(
                     neteaseAlbums = mapped,
                     neteaseError = null
@@ -308,10 +314,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun refreshNeteasePodcasts() {
+        if (neteasePodcastsLoaded) return
         viewModelScope.launch {
             try {
                 val uid = withContext(Dispatchers.IO) { neteaseClient.getCurrentUserId() }
                 val raw = withContext(Dispatchers.IO) { neteaseClient.getUserDjRadios(uid) }
+                neteasePodcastsLoaded = true
                 _uiState.value = _uiState.value.copy(
                     neteasePodcasts = parseNeteasePodcasts(raw),
                     neteaseError = null
@@ -396,14 +404,20 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val result = mutableListOf<AlbumSummary>()
         val root = JSONObject(raw)
         if (root.optInt("code", -1) != 200) return emptyList()
-        val arr = root.optJSONArray("playlist") ?: return emptyList()
+        val arr = root.optJSONArray("data")
+            ?: root.optJSONArray("playlist")
+            ?: return emptyList()
         val size = arr.length()
         for (i in 0 until size) {
-            val obj = arr.optJSONObject(i)?.optJSONObject("dataInfo")?.optJSONObject("data") ?: continue
+            val item = arr.optJSONObject(i) ?: continue
+            val obj = item.optJSONObject("dataInfo")?.optJSONObject("data") ?: item
             val id = obj.optLong("id", 0L)
             val name = obj.optString("name", "")
-            val cover = arr.optJSONObject(i)?.optJSONObject("dataInfo")?.optString("picUrl", "")?.replaceFirst("http://", "https://") ?: continue
-            val songSize = obj.optInt("size", 0)
+            val cover = (
+                item.optJSONObject("dataInfo")?.optString("picUrl", "")
+                    ?: obj.optString("picUrl", obj.optString("blurPicUrl", ""))
+            ).replaceFirst("http://", "https://")
+            val songSize = obj.optInt("size", obj.optInt("songCount", 0))
             if (id != 0L && name.isNotBlank()) {
                 result.add(AlbumSummary(id, name, cover, songSize))
             }

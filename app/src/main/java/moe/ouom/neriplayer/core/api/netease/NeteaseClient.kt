@@ -397,26 +397,22 @@ class NeteaseClient {
     
     @Throws(IOException::class)
     fun getUserAlbums(userId: Long, offset: Int = 0, limit: Int = 30): String {
-        val url = "https://interface3.music.163.com/eapi/mine/rn/resource/list"
+        val url = "https://music.163.com/weapi/album/sublist"
         val params = mutableMapOf<String, Any>(
-            "userId" to userId.toString(),
             "offset" to offset.toString(),
             "limit" to limit.toString(),
-            "pageType" to "3",
-            "needRcmd" to "0",
-            "isVistor" to "false",
-            "includeStarPodcast" to "true"
+            "total" to "true"
         )
-        return request(url, params, CryptoMode.EAPI, "POST", usePersistedCookies = true)
+        return request(url, params, CryptoMode.WEAPI, "POST", usePersistedCookies = true)
     }
     
     @Throws(IOException::class)
     fun getUserDjRadios(userId: Long, offset: Int = 0, limit: Int = 30): String {
-        val url = "https://music.163.com/weapi/user/djradio/get/subed"
+        val url = "https://music.163.com/weapi/djradio/get/subed"
         val params = mutableMapOf<String, Any>(
-            "uid" to userId.toString(),
             "offset" to offset.toString(),
-            "limit" to limit.toString()
+            "limit" to limit.toString(),
+            "total" to "true"
         )
         return request(url, params, CryptoMode.WEAPI, "POST", usePersistedCookies = true)
     }
@@ -565,26 +561,7 @@ class NeteaseClient {
      */
     @Throws(IOException::class)
     fun getUserStaredAlbums(userId: Long, offset: Int = 0, limit: Int = 1000): String {
-        val uid = if (userId == 0L) getCurrentUserId() else userId
-        val raw = getUserAlbums(uid, offset, limit)
-        return try {
-            val root = JSONObject(raw)
-            val code = root.optInt("code", 200)
-            val list = root.optJSONObject("data")?.optJSONObject("mainCollectInfo")?.optJSONObject("mineAllTabDto")?.optJSONArray("dataList") ?: JSONArray()
-            val created = JSONArray()
-            for (i in 0 until list.length()) {
-                val pl = list.optJSONObject(i) ?: continue
-                created.put(pl)
-                
-            }
-            JSONObject().apply {
-                put("code", code)
-                put("playlist", created)
-                put("count", created.length())
-            }.toString()
-        } catch (e: Exception) {
-            """{ "code": 500, "msg": ${jsonQuote(e.message ?: "parse error")} }"""
-        }
+        return getUserAlbums(userId, offset, limit)
     }
     
     /**
