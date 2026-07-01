@@ -86,22 +86,18 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -119,11 +115,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import coil.Coil
 import coil.compose.AsyncImage
-import coil.request.CachePolicy
-import coil.request.ImageRequest
-import coil.size.Precision
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.google.gson.Gson
@@ -159,7 +151,6 @@ import moe.ouom.neriplayer.core.player.policy.shouldSyncPlaybackServiceForLocalP
 import moe.ouom.neriplayer.data.model.displayArtist
 import moe.ouom.neriplayer.data.model.displayCoverUrl
 import moe.ouom.neriplayer.data.model.displayName
-import moe.ouom.neriplayer.data.model.sameIdentityAs
 import moe.ouom.neriplayer.data.model.stableKey
 import moe.ouom.neriplayer.data.settings.PlaybackPreferenceSnapshot
 import moe.ouom.neriplayer.data.settings.ThemeDefaults
@@ -194,19 +185,15 @@ import moe.ouom.neriplayer.ui.screen.playlist.LocalPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteaseAlbumDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteasePlaylistDetailScreen
 import moe.ouom.neriplayer.ui.theme.NeriTheme
-import moe.ouom.neriplayer.ui.view.HyperBackground
 import moe.ouom.neriplayer.ui.viewmodel.debug.LogViewerScreen
 import moe.ouom.neriplayer.ui.viewmodel.playlist.BiliVideoItem
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
 import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.BiliPlaylist
 import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
-import moe.ouom.neriplayer.util.CoverArtColorCache
 import moe.ouom.neriplayer.util.ExceptionHandler
 import moe.ouom.neriplayer.util.NativeCrashHandler
 import moe.ouom.neriplayer.util.NPLogger
-import moe.ouom.neriplayer.util.adjustedAccentColorArgb
-import moe.ouom.neriplayer.util.isRemoteImageSource
 import moe.ouom.neriplayer.util.rememberOfflineModeState
 import moe.ouom.neriplayer.util.syncHapticFeedbackSetting
 import kotlin.coroutines.resume
@@ -232,30 +219,11 @@ private fun SongItem?.resolveUiCoverSource(context: android.content.Context): St
     return this?.displayCoverUrl(context)
 }
 
-private const val NOW_PLAYING_REMOTE_BLUR_IMAGE_SIZE_PX = 640
-private const val NOW_PLAYING_LOCAL_BLUR_IMAGE_SIZE_PX = 384
-
 private tailrec fun Context.findActivity(): Activity? {
     return when (this) {
         is Activity -> this
         is ContextWrapper -> baseContext.findActivity()
         else -> null
-    }
-}
-
-private fun resolvedNowPlayingBlurImageSizePx(coverUrl: String?): Int {
-    return if (isRemoteImageSource(coverUrl)) {
-        NOW_PLAYING_REMOTE_BLUR_IMAGE_SIZE_PX
-    } else {
-        NOW_PLAYING_LOCAL_BLUR_IMAGE_SIZE_PX
-    }
-}
-
-private fun resolvedNowPlayingBlurStrength(coverUrl: String?, configuredBlurAmount: Float): Float {
-    return if (isRemoteImageSource(coverUrl)) {
-        configuredBlurAmount
-    } else {
-        configuredBlurAmount.coerceAtMost(64f)
     }
 }
 
@@ -404,94 +372,12 @@ private suspend fun awaitStableDraw(view: View) {
     }
 }
 
-private const val COVER_SEED_WARMUP_DELAY_MS = 180L
-
+@Suppress("UNUSED_PARAMETER")
 internal fun resolveCoverSeedWarmupDelayMillis(
     showNowPlaying: Boolean,
     dynamicColorEnabled: Boolean,
     hasCachedSample: Boolean
-): Long {
-    if (!dynamicColorEnabled || showNowPlaying || hasCachedSample) {
-        return 0L
-    }
-    return COVER_SEED_WARMUP_DELAY_MS
-}
-
-/**
- * 根据封面提取播放界面强调色
- */
-@Composable
-private fun NowPlayingAccentBackdrop(
-    coverUrl: String?,
-    isDark: Boolean,
-    refreshKey: Int = 0,
-    modifier: Modifier = Modifier,
-    onAccentChanged: (String?) -> Unit = {}
-) {
-    val context = LocalContext.current
-    val fallback = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
-    var target by remember { mutableStateOf<Color?>(null) }
-
-    LaunchedEffect(coverUrl, isDark, refreshKey) {
-        if (coverUrl.isNullOrEmpty()) {
-            target = null
-            onAccentChanged(null)
-            return@LaunchedEffect
-        }
-        val cached = CoverArtColorCache.peek(coverUrl)
-        if (cached != null) {
-            target = Color(adjustedAccentColorArgb(cached.baseColorArgb, isDark))
-            onAccentChanged(cached.seedHex)
-        }
-        val sample = CoverArtColorCache.getOrLoad(context, coverUrl)
-        if (sample != null) {
-            target = Color(adjustedAccentColorArgb(sample.baseColorArgb, isDark))
-            onAccentChanged(sample.seedHex)
-        } else if (cached == null) {
-            target = null
-            onAccentChanged(null)
-        }
-    }
-
-    val bgColor by androidx.compose.animation.animateColorAsState(
-        targetValue = target ?: fallback,
-        animationSpec = tween(450, easing = FastOutSlowInEasing),
-        label = "accent-bg"
-    )
-
-    val vignetteAlpha by animateFloatAsState(
-        targetValue = if (isDark) 0.12f else 0.25f, // 暗色更强一点，亮色很轻
-        animationSpec = tween(300),
-        label = "vignette-alpha"
-    )
-
-    val whiteMaskAlpha by animateFloatAsState(
-        targetValue = if (isDark) 0f else 0.05f,
-        animationSpec = tween(300),
-        label = "white-mask-alpha"
-    )
-
-    Box(
-        modifier = modifier
-            .background(bgColor)
-            .drawWithContent {
-                drawContent()
-                // 顶部黑色渐隐
-                drawRect(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = vignetteAlpha),
-                            Color.Transparent
-                        )
-                    )
-                )
-                // 亮色模式白色遮罩，整体柔化
-                if (whiteMaskAlpha > 0f) {
-                    drawRect(Color.White.copy(alpha = whiteMaskAlpha))
-                }
-            }
-    )
-}
+): Long = 0L
 
 @Composable
 private fun OfflineModeBottomBanner() {
@@ -557,8 +443,6 @@ private fun NeriAppContent(
     val startupPlaybackPreferences = remember(application) {
         readPlaybackPreferenceSnapshotCached(application) ?: PlaybackPreferenceSnapshot()
     }
-    val coverArtImageLoader = remember(context) { Coil.imageLoader(context) }
-
     val storedFollowSystemDark by repo.followSystemDarkFlow.collectAsState(
         initial = initialThemeSnapshot.followSystemDark
     )
@@ -674,8 +558,6 @@ private fun NeriAppContent(
         clearThemeRevealVisualState()
     }
 
-    // 缓存当前封面的取色结果，避免开关动态取色时先闪到默认种子色
-    var coverSeedHex by remember { mutableStateOf<String?>(null) }
     val currentSong by PlayerManager.currentSongFlow.collectAsState()
     val displayCoverUrl = remember(currentSong, context) {
         currentSong.resolveUiCoverSource(context)
@@ -809,36 +691,6 @@ private fun NeriAppContent(
         if (pendingForceDark != null && pendingForceDark == storedForceDark) {
             pendingForceDark = null
         }
-    }
-
-    LaunchedEffect(displayCoverUrl, coverArtRefreshToken, showNowPlaying, dynamicColorEnabled) {
-        if (displayCoverUrl.isNullOrBlank() || !dynamicColorEnabled) {
-            coverSeedHex = null
-            return@LaunchedEffect
-        }
-        val cachedSample = CoverArtColorCache.peek(displayCoverUrl)
-        coverSeedHex = cachedSample?.seedHex
-
-        if (showNowPlaying && isRemoteImageSource(displayCoverUrl)) {
-            coverArtImageLoader.enqueue(
-                ImageRequest.Builder(context)
-                    .data(displayCoverUrl)
-                    .allowHardware(false)
-                    .size(256)
-                    .build()
-            )
-        }
-
-        val warmupDelayMillis = resolveCoverSeedWarmupDelayMillis(
-            showNowPlaying = showNowPlaying,
-            dynamicColorEnabled = dynamicColorEnabled,
-            hasCachedSample = cachedSample != null
-        )
-        if (warmupDelayMillis > 0L) {
-            delay(warmupDelayMillis)
-        }
-
-        coverSeedHex = CoverArtColorCache.preload(context, displayCoverUrl)?.seedHex ?: coverSeedHex
     }
 
     // 同步触感反馈设置
@@ -1035,20 +887,11 @@ private fun NeriAppContent(
     }
 
     CompositionLocalProvider(LocalDensity provides finalDensity) {
-        val activeCoverSeedHex = if (displayCoverUrl == null) null else coverSeedHex
-        val effectiveSeedHex = if (dynamicColorEnabled) {
-            activeCoverSeedHex ?: themeSeedColor
-        } else {
-            themeSeedColor
-        }
-        val useSystemDynamic =
-            dynamicColorEnabled && activeCoverSeedHex == null && displayCoverUrl == null
-
         NeriTheme(
             followSystemDark = followSystemDark,
             forceDark = forceDark,
-            dynamicColor = useSystemDynamic,
-            seedColorHex = effectiveSeedHex,
+            dynamicColor = false,
+            seedColorHex = themeSeedColor,
             paletteStyle = themePaletteStyle,
             colorSpec = themeColorSpec
         ) {
@@ -1079,13 +922,8 @@ private fun NeriAppContent(
 
             val snackbarHostState = remember { SnackbarHostState() }
 
-            val effectiveDynamicBackgroundEnabled =
-                nowPlayingDynamicBackgroundEnabled && !nowPlayingCoverBlurBackgroundEnabled
-            val effectiveAudioReactiveEnabled =
-                nowPlayingAudioReactiveEnabled && effectiveDynamicBackgroundEnabled
-
-            DisposableEffect(showNowPlaying, effectiveAudioReactiveEnabled) {
-                AudioReactive.enabled = showNowPlaying && effectiveAudioReactiveEnabled
+            DisposableEffect(showNowPlaying) {
+                AudioReactive.enabled = false
                 onDispose { AudioReactive.enabled = false }
             }
 
@@ -1133,6 +971,7 @@ private fun NeriAppContent(
                 val currentSong by PlayerManager.currentSongFlow.collectAsState()
                 val isMiniPlayerVisible = currentSong != null && !showNowPlaying
                 val isPlaybackControlPlaying by PlayerManager.playbackControlPlayingFlow.collectAsState()
+                val bottomBarHeightDp = with(LocalDensity.current) { bottomBarHeightPx.toDp() }
                 val reservedMiniPlayerHeightDp = if (currentSong == null) {
                     0.dp
                 } else {
@@ -1902,7 +1741,7 @@ private fun NeriAppContent(
                                     artist = currentSong?.displayArtist() ?: "",
                                     coverUrl = displayCoverUrl,
                                     isPlaying = isPlaybackControlPlaying,
-                                    modifier = Modifier.padding(bottom = with(LocalDensity.current) { bottomBarHeightPx.toDp() }),
+                                    modifier = Modifier.padding(bottom = bottomBarHeightDp),
                                     onPlayPause = { PlayerManager.togglePlayPause() },
                                     onExpand = { showNowPlaying = true },
                                     backdrop = bottomBarBackdrop,
@@ -1924,227 +1763,22 @@ private fun NeriAppContent(
                         targetOffsetY = { fullHeight -> fullHeight }
                     ) + fadeOut(animationSpec = tween(durationMillis = 150))
                 ) {
-                    val currentCoverUrl = displayCoverUrl
-                    val activeCoverSeedHex = if (currentCoverUrl == null) null else coverSeedHex
-                    val effectiveSeedHex = if (dynamicColorEnabled) {
-                        activeCoverSeedHex ?: themeSeedColor
-                    } else {
-                        themeSeedColor
-                    }
-                    val useSystemDynamic =
-                        dynamicColorEnabled && activeCoverSeedHex == null && currentCoverUrl == null
-
                     NeriTheme(
                         followSystemDark = false,
-                        forceDark = true,
-                        dynamicColor = useSystemDynamic,
-                        seedColorHex = effectiveSeedHex,
+                        forceDark = false,
+                        dynamicColor = false,
+                        seedColorHex = themeSeedColor,
                         paletteStyle = themePaletteStyle,
                         colorSpec = themeColorSpec
                     ) {
                         BackHandler { showNowPlaying = false }
 
-                        val currentSongNP by PlayerManager.currentSongFlow.collectAsState()
-                        val nowPlayingQueue by PlayerManager.currentQueueFlow.collectAsState()
-                        val nowPlayingCoverUrl = remember(currentSongNP, context) {
-                            currentSongNP.resolveUiCoverSource(context)
-                        }
-
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background)
                                 .blockUnderlyingTouches()
                         ) {
-                            val coverBlurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                            val hasCoverBlur =
-                                coverBlurAvailable &&
-                                    nowPlayingCoverBlurBackgroundEnabled &&
-                                    !nowPlayingCoverUrl.isNullOrBlank()
-                            val blurStrength = nowPlayingCoverBlurAmount.coerceIn(0f, 500f)
-                            val effectiveBlurStrength = remember(nowPlayingCoverUrl, blurStrength) {
-                                resolvedNowPlayingBlurStrength(
-                                    coverUrl = nowPlayingCoverUrl,
-                                    configuredBlurAmount = blurStrength
-                                )
-                            }
-                            val blurImageSizePx = remember(nowPlayingCoverUrl) {
-                                resolvedNowPlayingBlurImageSizePx(nowPlayingCoverUrl)
-                            }
-                            val shouldPreloadCoverBlurNeighbors = remember(nowPlayingCoverUrl) {
-                                isRemoteImageSource(nowPlayingCoverUrl)
-                            }
-                            val imageLoader = remember(context) { Coil.imageLoader(context) }
-                            var stableCoverUrl by remember { mutableStateOf<String?>(null) }
-                            var stableBlurStrength by remember { mutableStateOf<Float?>(null) }
-                            var coverBlurLoadFailed by remember { mutableStateOf(false) }
-                            val coverBlurRequestKey = remember(nowPlayingCoverUrl, effectiveBlurStrength) {
-                                if (nowPlayingCoverUrl.isNullOrBlank()) {
-                                    null
-                                } else {
-                                    "nowplaying-blur:$nowPlayingCoverUrl:$effectiveBlurStrength"
-                                }
-                            }
-                            val latestCoverBlurRequestKey by rememberUpdatedState(coverBlurRequestKey)
-                            val currentQueueIndex = remember(nowPlayingQueue, currentSongNP) {
-                                val current = currentSongNP ?: return@remember -1
-                                nowPlayingQueue.indexOfFirst { it.sameIdentityAs(current) }
-                            }
-                            val preloadCoverUrls = remember(
-                                nowPlayingQueue,
-                                currentQueueIndex,
-                                shouldPreloadCoverBlurNeighbors
-                            ) {
-                                if (currentQueueIndex == -1 || !shouldPreloadCoverBlurNeighbors) {
-                                    emptyList()
-                                } else {
-                                    listOfNotNull(
-                                        nowPlayingQueue.getOrNull(currentQueueIndex - 1)
-                                            .resolveUiCoverSource(context),
-                                        nowPlayingQueue.getOrNull(currentQueueIndex + 1)
-                                            .resolveUiCoverSource(context)
-                                    ).distinct()
-                                }
-                            }
-
-                            LaunchedEffect(hasCoverBlur, effectiveBlurStrength, blurImageSizePx, preloadCoverUrls) {
-                                if (!hasCoverBlur || preloadCoverUrls.isEmpty()) return@LaunchedEffect
-                                preloadCoverUrls.forEach { url ->
-                                    imageLoader.enqueue(
-                                        ImageRequest.Builder(context)
-                                            .data(url)
-                                            .allowHardware(false)
-                                            .bitmapConfig(Bitmap.Config.RGB_565)
-                                            .size(blurImageSizePx)
-                                            .precision(Precision.INEXACT)
-                                            .memoryCacheKey("nowplaying-blur:$url:$effectiveBlurStrength")
-                                            .diskCacheKey("nowplaying-blur:$url:$effectiveBlurStrength")
-                                            .memoryCachePolicy(CachePolicy.ENABLED)
-                                            .diskCachePolicy(CachePolicy.ENABLED)
-                                            .transformations(
-                                                if (effectiveBlurStrength > 0f) {
-                                                    listOf(BlurTransformation(context, effectiveBlurStrength))
-                                                } else {
-                                                    emptyList()
-                                                }
-                                            )
-                                            .build()
-                                    )
-                                }
-                            }
-
-                            LaunchedEffect(hasCoverBlur, nowPlayingCoverUrl, effectiveBlurStrength) {
-                                if (!hasCoverBlur) {
-                                    stableCoverUrl = null
-                                    stableBlurStrength = null
-                                    coverBlurLoadFailed = false
-                                } else {
-                                    coverBlurLoadFailed = false
-                                }
-                            }
-
-                            val blurBackdropCoverUrl = stableCoverUrl ?: nowPlayingCoverUrl
-                            val useCoverBlurBackground = hasCoverBlur && !coverBlurLoadFailed
-
-                            if (!useCoverBlurBackground) {
-                                // 背景固定按暗色逻辑渲染
-                                NowPlayingAccentBackdrop(
-                                    coverUrl = nowPlayingCoverUrl,
-                                    isDark = true,
-                                    refreshKey = coverArtRefreshToken,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-
-                            if (useCoverBlurBackground) {
-                                // 先铺一层强调色背景，避免首次加载和旋转重建时黑底闪烁
-                                NowPlayingAccentBackdrop(
-                                    coverUrl = blurBackdropCoverUrl,
-                                    isDark = true,
-                                    refreshKey = coverArtRefreshToken,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                val shouldShowStable =
-                                    stableCoverUrl != null &&
-                                        (
-                                            stableCoverUrl != nowPlayingCoverUrl ||
-                                                stableBlurStrength != effectiveBlurStrength
-                                            )
-                                if (shouldShowStable) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .data(stableCoverUrl)
-                                            .allowHardware(false)
-                                            .bitmapConfig(Bitmap.Config.RGB_565)
-                                            .size(blurImageSizePx)
-                                            .precision(Precision.INEXACT)
-                                            .memoryCacheKey("nowplaying-blur:$stableCoverUrl:$stableBlurStrength")
-                                            .diskCacheKey("nowplaying-blur:$stableCoverUrl:$stableBlurStrength")
-                                            .transformations(
-                                                if ((stableBlurStrength ?: 0f) > 0f) {
-                                                    listOf(BlurTransformation(context, stableBlurStrength ?: 0f))
-                                                } else {
-                                                    emptyList()
-                                                }
-                                            )
-                                            .build(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(nowPlayingCoverUrl)
-                                        .allowHardware(false)
-                                        .bitmapConfig(Bitmap.Config.RGB_565)
-                                        .size(blurImageSizePx)
-                                        .precision(Precision.INEXACT)
-                                        .memoryCacheKey("nowplaying-blur:$nowPlayingCoverUrl:$effectiveBlurStrength")
-                                        .diskCacheKey("nowplaying-blur:$nowPlayingCoverUrl:$effectiveBlurStrength")
-                                        .transformations(
-                                            if (effectiveBlurStrength > 0f) {
-                                                listOf(BlurTransformation(context, effectiveBlurStrength))
-                                            } else {
-                                                emptyList()
-                                            }
-                                        )
-                                        .build(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                    onSuccess = {
-                                        if (latestCoverBlurRequestKey == coverBlurRequestKey) {
-                                            stableCoverUrl = nowPlayingCoverUrl
-                                            stableBlurStrength = effectiveBlurStrength
-                                            coverBlurLoadFailed = false
-                                        }
-                                    },
-                                    onError = {
-                                        if (latestCoverBlurRequestKey == coverBlurRequestKey) {
-                                            stableCoverUrl = null
-                                            stableBlurStrength = null
-                                            coverBlurLoadFailed = true
-                                        }
-                                    }
-                                )
-                                if (nowPlayingCoverBlurDarken > 0f) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color.Black.copy(alpha = nowPlayingCoverBlurDarken.coerceIn(0f, 0.8f)))
-                                    )
-                                }
-                            } else if (effectiveDynamicBackgroundEnabled) {
-                                HyperBackground(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = 0.80f },
-                                    isDark = true,
-                                    coverUrl = nowPlayingCoverUrl,
-                                    refreshKey = coverArtRefreshToken
-                                )
-                            }
-
                             CompositionLocalProvider(LocalMiniPlayerHeight provides 0.dp) {
                                 NowPlayingScreen(
                                     onNavigateUp = { showNowPlaying = false },

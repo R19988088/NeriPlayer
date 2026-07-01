@@ -6,9 +6,9 @@ import org.junit.Test
 class NeriAppPlaybackTransitionPolicyTest {
 
     @Test
-    fun `cover seed warmup is deferred only for uncached mini player transitions`() {
+    fun `cover seed warmup is disabled for mini player transitions`() {
         assertEquals(
-            180L,
+            0L,
             resolveCoverSeedWarmupDelayMillis(
                 showNowPlaying = false,
                 dynamicColorEnabled = true,
