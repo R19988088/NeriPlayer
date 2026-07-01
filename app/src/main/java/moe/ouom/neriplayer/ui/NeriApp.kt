@@ -1115,7 +1115,7 @@ private fun NeriAppContent(
                 val reservedMiniPlayerHeightDp = if (currentSong == null) {
                     0.dp
                 } else {
-                    moe.ouom.neriplayer.ui.component.NeriMiniPlayerDefaults.Height
+                    moe.ouom.neriplayer.ui.component.NeriMiniPlayerDefaults.Height + 8.dp
                 }
 
                 LaunchedEffect(currentRoute, showHomeTab, effectiveStartDestination) {
@@ -1181,6 +1181,8 @@ private fun NeriAppContent(
                                     NeriBottomBar(
                                         modifier = Modifier.fillMaxWidth(),
                                         selectAlpha = selectAlpha,
+                                        hazeState = hazeState,
+                                        enableHaze = effectiveAdvancedBlurEnabled,
                                         items = bottomBarItems,
                                         currentDestination = backEntry?.destination,
                                         onItemSelected = { dest ->

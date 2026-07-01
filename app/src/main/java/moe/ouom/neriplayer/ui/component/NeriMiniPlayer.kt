@@ -32,6 +32,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -84,20 +86,23 @@ fun NeriMiniPlayer(
     hazeState: HazeState,
     enableHaze: Boolean = true
 ) {
-    val shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    val shape = RoundedCornerShape(26.dp)
     val supportsBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val hazeContainerAlpha = if (supportsBlur && enableHaze) 0.4f else 1f
+    val hazeContainerAlpha = if (supportsBlur && enableHaze) 0.34f else 0.9f
 
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
+            containerColor = MaterialTheme.colorScheme.surface.copy(
                 alpha = hazeContainerAlpha
             )
         ),
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.3f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        shape = shape,
         modifier = modifier
             .height(NeriMiniPlayerDefaults.Height)
-            .padding(start = 16.dp, end = 8.dp)
+            .padding(start = 18.dp, end = 18.dp, bottom = 8.dp)
+            .shadow(18.dp, shape, clip = false)
             .clip(shape)
             .clickable { onExpand() }
             .then(
@@ -153,14 +158,14 @@ fun NeriMiniPlayer(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = artist,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -187,7 +192,7 @@ fun NeriMiniPlayer(
                     Icon(
                         imageVector = if (currentlyPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                         contentDescription = if (currentlyPlaying) stringResource(R.string.lyrics_pause) else stringResource(R.string.lyrics_play),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
