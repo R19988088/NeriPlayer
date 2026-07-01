@@ -23,12 +23,16 @@ android {
         create("release") {
             val storePath = project.findProperty("KEYSTORE_FILE") as String? ?: "neri.jks"
             val resolvedStoreFile = project.layout.projectDirectory.file(storePath).asFile
+            val requireReleaseKeystore =
+                (project.findProperty("REQUIRE_RELEASE_KEYSTORE") as String?)?.toBoolean() == true
 
             if (resolvedStoreFile.exists()) {
                 storeFile = resolvedStoreFile
                 storePassword = project.findProperty("KEYSTORE_PASSWORD") as String? ?: ""
                 keyAlias = project.findProperty("KEY_ALIAS") as String? ?: "key0"
                 keyPassword = project.findProperty("KEY_PASSWORD") as String? ?: ""
+            } else if (requireReleaseKeystore) {
+                error("Required release keystore not found at '${resolvedStoreFile.path}'.")
             } else {
                 println("Release keystore not found at '${resolvedStoreFile.path}'. Using debug signing config instead.")
             }
