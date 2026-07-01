@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -44,6 +45,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -64,15 +69,15 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -90,7 +95,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -139,14 +143,22 @@ enum class LibraryTab(val labelResId: Int) {
     QQMUSIC(R.string.library_tab_qqmusic)
 }
 
-private fun libraryTabDisplayOrder(isInternational: Boolean): List<LibraryTab> {
+private fun LibraryTab.sourceLabelResId(): Int {
+    return if (this == LibraryTab.NETEASE) R.string.library_source_netease else labelResId
+}
+
+private enum class NeteaseLibraryMode(val labelResId: Int) {
+    PLAYLIST(R.string.library_source_netease_playlists),
+    ALBUM(R.string.library_source_netease_albums)
+}
+
+private fun librarySourceDisplayOrder(isInternational: Boolean): List<LibraryTab> {
     return if (isInternational) {
         listOf(
             LibraryTab.LOCAL,
             LibraryTab.FAVORITE,
             LibraryTab.YTMUSIC,
             LibraryTab.NETEASE,
-            LibraryTab.NETEASEALBUM,
             LibraryTab.BILI,
             LibraryTab.QQMUSIC
         )
@@ -155,11 +167,22 @@ private fun libraryTabDisplayOrder(isInternational: Boolean): List<LibraryTab> {
             LibraryTab.LOCAL,
             LibraryTab.FAVORITE,
             LibraryTab.NETEASE,
-            LibraryTab.NETEASEALBUM,
             LibraryTab.YTMUSIC,
             LibraryTab.BILI,
             LibraryTab.QQMUSIC
         )
+    }
+}
+
+private fun LibraryTab.asLibrarySource(): LibraryTab {
+    return if (this == LibraryTab.NETEASEALBUM) LibraryTab.NETEASE else this
+}
+
+private fun LibraryTab.asNeteaseMode(): NeteaseLibraryMode {
+    return if (this == LibraryTab.NETEASEALBUM) {
+        NeteaseLibraryMode.ALBUM
+    } else {
+        NeteaseLibraryMode.PLAYLIST
     }
 }
 
@@ -185,13 +208,12 @@ fun LibraryScreen(
 ) {
     val vm: LibraryViewModel = viewModel()
     val ui by vm.uiState.collectAsState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val defaultPlaylistName = stringResource(R.string.library_create_playlist_default)
     val isInternational by AppContainer.settingsRepo.internationalizationEnabledFlow
         .collectAsState(initial = false)
-    val orderedTabs = remember(isInternational) { libraryTabDisplayOrder(isInternational) }
+    val orderedTabs = remember(isInternational) { librarySourceDisplayOrder(isInternational) }
     val initialPage = remember(orderedTabs, initialTab) {
-        orderedTabs.indexOf(initialTab).takeIf { it >= 0 } ?: 0
+        orderedTabs.indexOf(initialTab.asLibrarySource()).takeIf { it >= 0 } ?: 0
     }
 
     val pagerState = rememberPagerState(
@@ -199,18 +221,38 @@ fun LibraryScreen(
         pageCount = { orderedTabs.size }
     )
     val scope = rememberCoroutineScope()
+    var sourceMenuExpanded by remember { mutableStateOf(false) }
+    var neteaseMode by rememberSaveable { mutableStateOf(initialTab.asNeteaseMode()) }
 
     LaunchedEffect(initialTab, orderedTabs) {
-        val targetPage = orderedTabs.indexOf(initialTab).takeIf { it >= 0 } ?: 0
+        val targetPage = orderedTabs.indexOf(initialTab.asLibrarySource()).takeIf { it >= 0 } ?: 0
         if (pagerState.currentPage != targetPage) {
             pagerState.scrollToPage(targetPage)
         }
+        neteaseMode = initialTab.asNeteaseMode()
     }
 
     LaunchedEffect(pagerState.currentPage, orderedTabs, initialTab) {
         val currentTab = orderedTabs.getOrNull(pagerState.currentPage) ?: return@LaunchedEffect
-        if (currentTab != initialTab) {
-            onTabChange(currentTab)
+        val callbackTab = if (currentTab == LibraryTab.NETEASE && neteaseMode == NeteaseLibraryMode.ALBUM) {
+            LibraryTab.NETEASEALBUM
+        } else {
+            currentTab
+        }
+        if (callbackTab != initialTab) {
+            onTabChange(callbackTab)
+        }
+    }
+
+    LaunchedEffect(neteaseMode) {
+        if (orderedTabs.getOrNull(pagerState.currentPage) == LibraryTab.NETEASE) {
+            onTabChange(
+                if (neteaseMode == NeteaseLibraryMode.ALBUM) {
+                    LibraryTab.NETEASEALBUM
+                } else {
+                    LibraryTab.NETEASE
+                }
+            )
         }
     }
 
@@ -219,13 +261,36 @@ fun LibraryScreen(
     }
 
     Column(
-        Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection)
+        Modifier.fillMaxSize()
     ) {
-        LargeTopAppBar(
-            title = { Text(stringResource(R.string.library_title)) },
-            scrollBehavior = scrollBehavior,
+        TopAppBar(
+            title = {
+                Box {
+                    TextButton(onClick = { sourceMenuExpanded = true }) {
+                        Text(
+                            text = stringResource(
+                                (orderedTabs.getOrNull(pagerState.currentPage) ?: LibraryTab.LOCAL).sourceLabelResId()
+                            )
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = sourceMenuExpanded,
+                        onDismissRequest = { sourceMenuExpanded = false }
+                    ) {
+                        orderedTabs.forEachIndexed { index, tab ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(tab.sourceLabelResId())) },
+                                onClick = {
+                                    sourceMenuExpanded = false
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent,
                 scrolledContainerColor = Color.Transparent
@@ -257,27 +322,6 @@ fun LibraryScreen(
                 .fillMaxSize()
         ) {
             Column(Modifier.fillMaxSize()) {
-                PrimaryScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    edgePadding = 8.dp,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ) {
-                    orderedTabs.forEachIndexed { index, tab ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            text = { Text(stringResource(tab.labelResId)) }
-                        )
-                    }
-                }
-
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
@@ -313,15 +357,16 @@ fun LibraryScreen(
 
                         LibraryTab.NETEASE -> NeteasePlaylistList(
                             playlists = ui.neteasePlaylists,
+                            albums = ui.neteaseAlbums,
                             listState = neteaseListState,
-                            onClick = onNeteasePlaylistClick
+                            albumListState = neteaseAlbumState,
+                            mode = neteaseMode,
+                            onModeChange = { neteaseMode = it },
+                            onClick = onNeteasePlaylistClick,
+                            onAlbumClick = onNeteaseAlbumClick
                         )
 
-                        LibraryTab.NETEASEALBUM -> NeteaseAlbumList(
-                            playlists = ui.neteaseAlbums,
-                            listState = neteaseAlbumState,
-                            onClick = onNeteaseAlbumClick
-                        )
+                        LibraryTab.NETEASEALBUM -> Unit
 
                         LibraryTab.YTMUSIC -> YouTubeMusicPlaylistList(
                             playlists = ui.youtubeMusicPlaylists,
@@ -1391,6 +1436,62 @@ private fun LocalPlaylistList(
 @Composable
 private fun NeteasePlaylistList(
     playlists: List<PlaylistSummary>,
+    albums: List<AlbumSummary>,
+    listState: LazyListState,
+    albumListState: LazyListState,
+    mode: NeteaseLibraryMode,
+    onModeChange: (NeteaseLibraryMode) -> Unit,
+    onClick: (PlaylistSummary) -> Unit,
+    onAlbumClick: (AlbumSummary) -> Unit
+) {
+    NeteaseLibrarySourceContent(
+        selectedMode = mode,
+        onModeChange = onModeChange
+    ) {
+        if (mode == NeteaseLibraryMode.ALBUM) {
+            NeteaseAlbumList(
+                playlists = albums,
+                listState = albumListState,
+                onClick = onAlbumClick
+            )
+        } else {
+            NeteasePlaylistRows(
+                playlists = playlists,
+                listState = listState,
+                onClick = onClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun NeteaseLibrarySourceContent(
+    selectedMode: NeteaseLibraryMode,
+    onModeChange: (NeteaseLibraryMode) -> Unit,
+    content: @Composable () -> Unit
+) {
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            NeteaseLibraryMode.values().forEach { mode ->
+                FilterChip(
+                    selected = selectedMode == mode,
+                    onClick = { onModeChange(mode) },
+                    label = { Text(stringResource(mode.labelResId)) }
+                )
+            }
+        }
+        content()
+    }
+}
+
+@Composable
+private fun NeteasePlaylistRows(
+    playlists: List<PlaylistSummary>,
     listState: LazyListState,
     onClick: (PlaylistSummary) -> Unit
 ) {
@@ -1543,26 +1644,27 @@ private fun NeteaseAlbumList(
         filterNeteaseAlbums(playlists, searchQuery)
     }
 
-    LazyColumn(
-        state = listState,
-        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp + miniPlayerHeight),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(3),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + miniPlayerHeight),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         val cardShape = RoundedCornerShape(12.dp)
-        item(key = "netease_album_search") {
+        item(key = "netease_album_search", span = { GridItemSpan(maxLineSpan) }) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(vertical = 4.dp),
                 placeholder = { Text(stringResource(R.string.library_netease_search_hint)) },
                 singleLine = true
             )
         }
         if (playlists.isNotEmpty() && filteredAlbums.isEmpty()) {
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Card(
                     shape = cardShape,
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -1594,7 +1696,7 @@ private fun NeteaseAlbumList(
                 }
             }
         } else if (filteredAlbums.isEmpty()) {
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Card(
                     shape = cardShape,
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -1630,39 +1732,32 @@ private fun NeteaseAlbumList(
             items = filteredAlbums,
             key = { it.id }
         ) { pl ->
-            Card(
-                shape = cardShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            Column(
                 modifier = Modifier
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
                     .animateItem()
                     .clip(cardShape)
                     .clickable { onClick(pl) }
             ) {
-                ListItem(
-                    headlineContent = { Text(pl.name) },
-                    supportingContent = {
-                        Text(
-                            pluralStringResource(R.plurals.library_song_count, pl.size, pl.size),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    colors = ListItemDefaults.colors(
-                        containerColor = Color.Transparent
-                    ),
-                    leadingContent = {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current).data(pl.picUrl).build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                    }
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current).data(pl.picUrl).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+                Text(
+                    text = pl.name,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+                Text(
+                    text = pluralStringResource(R.plurals.library_song_count, pl.size, pl.size),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

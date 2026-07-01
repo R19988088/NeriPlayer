@@ -1433,6 +1433,9 @@
     <string name="library_tab_youtube_music">YouTube Music</string>
     <string name="library_tab_bilibili">Bilibili</string>
     <string name="library_tab_qqmusic">QQ Music</string>
+    <string name="library_source_netease">NetEase Cloud Music</string>
+    <string name="library_source_netease_playlists">Playlists</string>
+    <string name="library_source_netease_albums">Albums</string>
     <string name="library_create_playlist_default">New Playlist</string>
     <string name="library_name_reserved">This name is reserved for \"%s\", please choose another name~</string>
     <string name="library_name_exists">A playlist with this name already exists, please choose another name</string>
