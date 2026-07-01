@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -190,13 +190,16 @@ jobs:
           echo "apk_path=$apk" >> "$GITHUB_OUTPUT"
           echo "apk_name=$(basename "$apk")" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Debug APK
+      - name: Upload Debug APK to release
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.find_apk.outputs.apk_name }}
-          path: ${{ steps.find_apk.outputs.apk_path }}
-          if-no-files-found: error
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_PATH: ${{ steps.find_apk.outputs.apk_path }}
+        run: |
+          set -euo pipefail
+          gh release view debug-apk >/dev/null 2>&1 || \
+            gh release create debug-apk --title "Debug APK" --notes "Latest debug APK" --prerelease
+          gh release upload debug-apk "$APK_PATH" --clobber
 
       - name: Send APK via Telegram API
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
