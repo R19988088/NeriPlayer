@@ -25,13 +25,13 @@ jobs:
     if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, '[skip ci]') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -40,12 +40,16 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
-      - name: Run unit tests and lint
-        run: ./gradlew :app:testDebugUnitTest :app:lintDebug --warning-mode all --stacktrace
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --warning-mode all --stacktrace
+
+      - name: Run lint
+        if: github.event_name == 'pull_request'
+        run: ./gradlew :app:lintDebug --warning-mode all --stacktrace
 
       - name: Upload Gradle test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gradle-test-reports
           path: |
@@ -60,13 +64,13 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -93,7 +97,7 @@ jobs:
 
       - name: Upload Android test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-instrumented-test-reports
           path: |
@@ -107,15 +111,15 @@ jobs:
     if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, '[skip ci]') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
           submodules: recursive
 
       - name: Set up Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: np-submodule/NeriPlayer-LTW/package-lock.json
 
@@ -130,13 +134,13 @@ jobs:
     if: ${{ (github.event_name != 'push' || !startsWith(github.event.head_commit.message, '[skip ci]')) && (github.ref == 'refs/heads/master' || github.event_name == 'pull_request') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -185,6 +189,14 @@ jobs:
           test -n "$apk"
           echo "apk_path=$apk" >> "$GITHUB_OUTPUT"
           echo "apk_name=$(basename "$apk")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Debug APK
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.find_apk.outputs.apk_name }}
+          path: ${{ steps.find_apk.outputs.apk_path }}
+          if-no-files-found: error
 
       - name: Send APK via Telegram API
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
