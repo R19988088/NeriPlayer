@@ -61,6 +61,45 @@ private fun normalizeNeteaseCollectionCoverUrl(url: String?): String? {
     return normalized.replaceFirst(Regex("^http://"), "https://")
 }
 
+internal fun parseNeteasePodcastPrograms(raw: String, podcast: PlaylistSummary): List<SongItem> {
+    val root = JSONObject(raw)
+    if (root.optInt("code", -1) != 200) return emptyList()
+    val programs = root.optJSONArray("programs") ?: root.optJSONObject("data")?.optJSONArray("programs") ?: return emptyList()
+    val out = mutableListOf<SongItem>()
+    for (i in 0 until programs.length()) {
+        val program = programs.optJSONObject(i) ?: continue
+        val mainSong = program.optJSONObject("mainSong")
+        val songId = mainSong?.optLong("id", 0L)?.takeIf { it != 0L }
+            ?: program.optLong("mainSongId", 0L).takeIf { it != 0L }
+            ?: continue
+        val programId = program.optLong("id", songId)
+        val name = program.optString("name", mainSong?.optString("name", "") ?: "")
+        if (name.isBlank()) continue
+        val cover = resolveNeteaseCollectionCoverUrl(
+            primary = program.optString("coverUrl", ""),
+            fallback = podcast.picUrl
+        )
+        val duration = mainSong?.let { it.optLong("duration", it.optLong("dt", 0L)) } ?: 0L
+        out.add(
+            SongItem(
+                id = songId,
+                name = name,
+                artist = podcast.creatorName,
+                album = "Netease${podcast.name}",
+                albumId = podcast.id,
+                durationMs = duration,
+                coverUrl = cover.takeIf { it.isNotBlank() },
+                originalCoverUrl = cover.takeIf { it.isNotBlank() },
+                channelId = "netease",
+                audioId = songId.toString(),
+                subAudioId = programId.toString(),
+                playlistContextId = podcast.id.toString()
+            )
+        )
+    }
+    return out
+}
+
 data class NeteaseCollectionHeader(
     val id: Long,
     val isAlbum: Boolean,//以兼容形式
@@ -108,6 +147,16 @@ data class NeteaseCollectionDetailUiState(
     val header: NeteaseCollectionHeader? = null,
     val tracks: List<SongItem> = emptyList()
 )
+
+private data class ParsedDetail(
+    val header: NeteaseCollectionHeader,
+    val tracks: List<SongItem>,
+    val trackIds: List<Long> = emptyList()
+)
+
+private val neteaseAlbumDetailCache = object : LinkedHashMap<Long, ParsedDetail>(50, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, ParsedDetail>?): Boolean = size > 50
+}
 
 class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewModel(application) {
     private val client = AppContainer.neteaseClient
@@ -185,8 +234,16 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
     }
     
     fun startAlbum(album: AlbumSummary) {
-        // 移除缓存检查，确保每次进入都能获取最新数据
         playlistId = album.id
+        val cached = synchronized(neteaseAlbumDetailCache) { neteaseAlbumDetailCache[album.id] }
+        if (cached != null) {
+            _uiState.value = NeteaseCollectionDetailUiState(
+                loading = false,
+                header = cached.header,
+                tracks = cached.tracks
+            )
+            return
+        }
 
         // 用入口数据把 header 预填
         _uiState.value = NeteaseCollectionDetailUiState(
@@ -204,10 +261,7 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
 
         viewModelScope.launch {
             try {
-                val (header, tracks) = parseDetailFromAlbum(
-                    raw = loadAlbumRaw(),
-                    coverFallback = album.picUrl
-                )
+                val (header, tracks) = loadAlbumDetail(album)
 
                 _uiState.value = NeteaseCollectionDetailUiState(
                     loading = false,
@@ -260,15 +314,12 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
     }
 
     suspend fun loadAlbumSongsForPlayback(album: AlbumSummary): List<SongItem> {
-        return parseDetailFromAlbum(
-            raw = loadAlbumRaw(album.id),
-            coverFallback = album.picUrl
-        ).tracks
+        return loadAlbumDetail(album).tracks
     }
 
     suspend fun loadPodcastProgramsForPlayback(podcast: PlaylistSummary): List<SongItem> {
         val raw = withContext(Dispatchers.IO) { client.getDjRadioPrograms(podcast.id) }
-        return parsePodcastPrograms(raw, podcast)
+        return parseNeteasePodcastPrograms(raw, podcast)
     }
 
     private fun toHttps(url: String?): String? =
@@ -294,6 +345,16 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         val raw = withContext(Dispatchers.IO) { client.getAlbumDetail(id) }
         NPLogger.d(TAG_PD, "detail head=${raw.take(500)}")
         return raw
+    }
+
+    private suspend fun loadAlbumDetail(album: AlbumSummary): ParsedDetail {
+        synchronized(neteaseAlbumDetailCache) { neteaseAlbumDetailCache[album.id] }?.let { return it }
+        return parseDetailFromAlbum(
+            raw = loadAlbumRaw(album.id),
+            coverFallback = album.picUrl
+        ).also { parsed ->
+            synchronized(neteaseAlbumDetailCache) { neteaseAlbumDetailCache[album.id] = parsed }
+        }
     }
 
     private fun parseDetailFromPlaylist(raw: String): ParsedDetail {
@@ -364,51 +425,6 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         }
         return ParsedDetail(header, list)
     }
-
-    private fun parsePodcastPrograms(raw: String, podcast: PlaylistSummary): List<SongItem> {
-        val root = JSONObject(raw)
-        val code = root.optInt("code", -1)
-        require(code == 200) { getApplication<Application>().getString(R.string.error_api_code, code) }
-        val programs = root.optJSONArray("programs") ?: root.optJSONObject("data")?.optJSONArray("programs") ?: return emptyList()
-        val out = mutableListOf<SongItem>()
-        for (i in 0 until programs.length()) {
-            val program = programs.optJSONObject(i) ?: continue
-            val mainSong = program.optJSONObject("mainSong")
-            val songId = mainSong?.optLong("id", 0L)?.takeIf { it != 0L }
-                ?: program.optLong("mainSongId", 0L).takeIf { it != 0L }
-                ?: continue
-            val programId = program.optLong("id", songId)
-            val name = program.optString("name", mainSong?.optString("name", "") ?: "")
-            if (name.isBlank()) continue
-            val cover = resolveNeteaseCollectionCoverUrl(
-                primary = program.optString("coverUrl", ""),
-                fallback = podcast.picUrl
-            )
-            val duration = mainSong?.let { it.optLong("duration", it.optLong("dt", 0L)) } ?: 0L
-            out.add(
-                SongItem(
-                    id = programId,
-                    name = name,
-                    artist = podcast.creatorName,
-                    album = "Netease${podcast.name}",
-                    albumId = podcast.id,
-                    durationMs = duration,
-                    coverUrl = cover.takeIf { it.isNotBlank() },
-                    originalCoverUrl = cover.takeIf { it.isNotBlank() },
-                    channelId = "netease",
-                    audioId = songId.toString(),
-                    playlistContextId = podcast.id.toString()
-                )
-            )
-        }
-        return out
-    }
-    
-    private data class ParsedDetail(
-        val header: NeteaseCollectionHeader,
-        val tracks: List<SongItem>,
-        val trackIds: List<Long> = emptyList()
-    )
 
     private fun parseSongItem(
         t: JSONObject,

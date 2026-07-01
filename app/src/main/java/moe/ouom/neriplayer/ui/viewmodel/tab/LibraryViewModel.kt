@@ -48,6 +48,7 @@ import java.io.IOException
 
 private const val BILI_DETAIL_BATCH_SIZE = 6
 private const val BILI_RESOURCE_TYPE_COLLECTION = 21
+private var cachedNeteaseAlbums: List<AlbumSummary>? = null
 
 /** 媒体库页面 UI 状态 */
 data class LibraryUiState(
@@ -294,13 +295,20 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
     
     fun refreshNeteaseAlbums() {
-        if (neteaseAlbumsLoaded) return
+        cachedNeteaseAlbums?.let { cached ->
+            if (!neteaseAlbumsLoaded) {
+                neteaseAlbumsLoaded = true
+                _uiState.value = _uiState.value.copy(neteaseAlbums = cached, neteaseError = null)
+            }
+            return
+        }
         viewModelScope.launch {
             try {
                 val uid = withContext(Dispatchers.IO) { neteaseClient.getCurrentUserId() }
                 val raw = withContext(Dispatchers.IO) { neteaseClient.getUserStaredAlbums(uid) }
                 val mapped = parseNeteaseAlbums(raw)
                 neteaseAlbumsLoaded = true
+                cachedNeteaseAlbums = mapped
                 _uiState.value = _uiState.value.copy(
                     neteaseAlbums = mapped,
                     neteaseError = null
