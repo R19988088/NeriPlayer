@@ -945,12 +945,18 @@ fun LocalPlaylistDetailScreen(
                                 }
                                 PlaylistHeroHeader(
                                     title = headerDisplayName,
-                                    subtitle = stringResource(R.string.local_playlist_total_duration, formatTotalDuration(context, totalDurationMs), localSongs.size),
+                                    subtitle = "",
                                     cover = headerCover,
                                     onBack = onBack,
-                                    onPlay = { if (baseQueue.isNotEmpty()) onSongClick(baseQueue, 0) },
+                                    onPlay = {
+                                        if (currentIndexInSource >= 0) PlayerManager.togglePlayPause()
+                                        else if (baseQueue.isNotEmpty()) onSongClick(baseQueue, 0)
+                                    },
                                     playEnabled = baseQueue.isNotEmpty(),
-                                    height = if (isPlaying) 500.dp else headerHeight
+                                    isPlaying = isPlaying && currentIndexInSource >= 0,
+                                    isFavorite = isFavorites,
+                                    onFavoriteClick = {},
+                                    height = headerHeight
                                 )
                             }
 

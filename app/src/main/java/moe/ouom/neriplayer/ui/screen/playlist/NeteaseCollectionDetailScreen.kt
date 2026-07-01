@@ -319,6 +319,23 @@ fun DetailScreen(
     val isFavorite = remember(favorites, playlistId) {
         favoriteRepo.isFavorite(playlistId, playlistSource)
     }
+    fun toggleFavorite() {
+        val header = ui.header ?: return
+        scope.launch {
+            if (isFavorite) {
+                favoriteRepo.removeFavorite(header.id, playlistSource)
+            } else {
+                favoriteRepo.addFavorite(
+                    id = header.id,
+                    name = header.name,
+                    coverUrl = header.coverUrl,
+                    trackCount = header.trackCount,
+                    source = playlistSource,
+                    songs = ui.tracks
+                )
+            }
+        }
+    }
 
     LaunchedEffect(isFavorite, ui.header, ui.tracks) {
         if (!isFavorite) return@LaunchedEffect
@@ -461,16 +478,18 @@ fun DetailScreen(
                             item {
                                 PlaylistHeroHeader(
                                     title = ui.header?.name ?: "Playlist Shuffling",
-                                    subtitle = stringResource(
-                                        R.string.playlist_play_count_format,
-                                        formatPlayCount(context, ui.header?.playCount ?: 0),
-                                        ui.header?.trackCount ?: 0
-                                    ),
+                                    subtitle = "",
                                     cover = ui.header?.coverUrl.takeUnless { it.isNullOrBlank() },
                                     onBack = onBack,
-                                    onPlay = { if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0) },
+                                    onPlay = {
+                                        if (currentIndex >= 0) PlayerManager.togglePlayPause()
+                                        else if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0)
+                                    },
                                     playEnabled = ui.tracks.isNotEmpty(),
-                                    height = if (isPlaying) 500.dp else headerHeight
+                                    isPlaying = isPlaying && currentIndex >= 0,
+                                    isFavorite = isFavorite,
+                                    onFavoriteClick = ::toggleFavorite,
+                                    height = headerHeight
                                 )
                             }
 

@@ -169,8 +169,26 @@ fun BiliPlaylistDetailScreen(
     val playlistId = ui.header?.mediaId ?: playlist.mediaId
     val favoriteRepo = remember(context) { FavoritePlaylistRepository.getInstance(context) }
     val favorites by favoriteRepo.favorites.collectAsState()
+    val scope = rememberCoroutineScope()
     val isFavorite = remember(favorites, playlistId) {
         favoriteRepo.isFavorite(playlistId, playlistSource)
+    }
+    fun toggleFavorite() {
+        val header = ui.header ?: playlist
+        scope.launch {
+            if (isFavorite) {
+                favoriteRepo.removeFavorite(header.mediaId, playlistSource)
+            } else {
+                favoriteRepo.addFavorite(
+                    id = header.mediaId,
+                    name = header.title,
+                    coverUrl = header.coverUrl,
+                    trackCount = header.count,
+                    source = playlistSource,
+                    songs = ui.videos.map { it.toSongItem() }
+                )
+            }
+        }
     }
     LaunchedEffect(isFavorite, ui.header, ui.videos) {
         if (!isFavorite) return@LaunchedEffect
@@ -188,7 +206,6 @@ fun BiliPlaylistDetailScreen(
     var selectedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showExportSheet by remember { mutableStateOf(false) }
     val exportSheetState = rememberModalBottomSheetState()
-    val scope = rememberCoroutineScope()
 
     var showPartsSheet by remember { mutableStateOf(false) }
     var partsInfo by remember { mutableStateOf<BiliClient.VideoBasicInfo?>(null) }
@@ -337,16 +354,18 @@ fun BiliPlaylistDetailScreen(
                             val header = ui.header ?: playlist
                             PlaylistHeroHeader(
                                 title = header.title,
-                                subtitle = pluralStringResource(
-                                    R.plurals.bili_content_count,
-                                    header.count,
-                                    header.count
-                                ),
+                                subtitle = header.subtitle,
                                 cover = header.coverUrl,
                                 onBack = onBack,
-                                onPlay = { displayedVideos.firstOrNull()?.let(::playVideo) },
+                                onPlay = {
+                                    if (currentVideoIndex >= 0) PlayerManager.togglePlayPause()
+                                    else displayedVideos.firstOrNull()?.let(::playVideo)
+                                },
                                 playEnabled = displayedVideos.isNotEmpty(),
-                                height = if (isPlaying) 500.dp else 430.dp
+                                isPlaying = isPlaying && currentVideoIndex >= 0,
+                                isFavorite = isFavorite,
+                                onFavoriteClick = ::toggleFavorite,
+                                height = 430.dp
                             )
                         }
 

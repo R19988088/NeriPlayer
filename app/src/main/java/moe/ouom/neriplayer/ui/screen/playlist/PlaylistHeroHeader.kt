@@ -5,6 +5,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +18,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,7 +43,6 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -81,23 +85,30 @@ internal fun PlaylistHeroHeader(
     onBack: () -> Unit,
     onPlay: () -> Unit,
     playEnabled: Boolean,
+    isPlaying: Boolean,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier,
     height: Dp = 430.dp
 ) {
     val context = LocalContext.current
     val model = cover ?: "about:blank"
-    val surfaceFade = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+    val detailTint = rememberPlaylistCoverTint(cover)
+    val isDark = isSystemInDarkTheme()
+    val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+    val coverHeight = (height - 132.dp).coerceAtLeast(220.dp)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .background(MaterialTheme.colorScheme.surface)
+            .background(detailTint)
     ) {
         AsyncImage(
             model = offlineCachedImageRequest(context, model, sizePx = 768, allowHardware = false),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.FillWidth,
+            alignment = Alignment.TopCenter,
             modifier = Modifier
                 .fillMaxSize()
                 .blur(28.dp)
@@ -105,20 +116,22 @@ internal fun PlaylistHeroHeader(
         AsyncImage(
             model = offlineCachedImageRequest(context, model, sizePx = 1200, allowHardware = false),
             contentDescription = title,
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.FillWidth,
+            alignment = Alignment.TopCenter,
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(coverHeight)
                 .drawWithContent {
                     drawContent()
-                    drawRect(Color.Black.copy(alpha = 0.10f))
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.22f),
-                                surfaceFade
+                                detailTint.copy(alpha = 0.72f),
+                                detailTint
                             ),
-                            startY = size.height * 0.36f,
+                            startY = size.height * 0.55f,
                             endY = size.height
                         )
                     )
@@ -141,58 +154,65 @@ internal fun PlaylistHeroHeader(
             )
         }
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineLarge.copy(
-                shadow = Shadow(
-                    color = Color.Black.copy(alpha = 0.55f),
-                    offset = Offset(0f, 2f),
-                    blurRadius = 8f
-                )
-            ),
-            color = Color.White,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 28.dp)
-                .padding(bottom = 122.dp)
-        )
-
-        if (subtitle.isNotBlank()) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 6f)
-                ),
-                color = Color.White.copy(alpha = 0.88f),
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 32.dp)
-                    .padding(bottom = 96.dp)
-            )
-        }
-
-        HapticIconButton(
-            onClick = onPlay,
-            enabled = playEnabled,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 28.dp)
-                .size(76.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Color.White)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Filled.PlayArrow,
-                contentDescription = stringResource(R.string.player_play_all),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(42.dp)
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        shadow = Shadow(Color.Black.copy(alpha = 0.28f), offset = Offset(0f, 1f), blurRadius = 4f)
+                    ),
+                    color = textColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = textColor.copy(alpha = 0.78f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            HapticIconButton(
+                onClick = onPlay,
+                enabled = playEnabled,
+                modifier = Modifier
+                    .padding(horizontal = 18.dp)
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.52f))
+            ) {
+                Icon(
+                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = stringResource(R.string.player_play_all),
+                    tint = Color.Black.copy(alpha = 0.72f),
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+
+            HapticIconButton(
+                onClick = onFavoriteClick,
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.28f))
+            ) {
+                Icon(
+                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
         }
     }
 }

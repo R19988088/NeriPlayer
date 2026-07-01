@@ -227,6 +227,25 @@ fun YouTubeMusicPlaylistDetailScreen(
         favoriteRepo.isFavorite(playlistFavoriteId, "youtubeMusic")
     }
     val resolvedTrackCount = resolvedPlaylist.trackCount.takeIf { it > 0 } ?: ui.tracks.size
+    fun toggleFavorite() {
+        scope.launch {
+            if (isFavorite) {
+                favoriteRepo.removeFavorite(playlistFavoriteId, "youtubeMusic")
+            } else {
+                favoriteRepo.addFavorite(
+                    id = playlistFavoriteId,
+                    name = resolvedPlaylist.title,
+                    coverUrl = resolvedPlaylist.coverUrl,
+                    trackCount = resolvedTrackCount,
+                    source = "youtubeMusic",
+                    browseId = resolvedPlaylist.browseId,
+                    playlistId = resolvedPlaylist.playlistId,
+                    subtitle = resolvedPlaylist.subtitle,
+                    songs = ui.tracks
+                )
+            }
+        }
+    }
     val displayedTracks = remember(ui.tracks, searchQuery) {
         if (searchQuery.isBlank()) {
             ui.tracks
@@ -357,19 +376,18 @@ fun YouTubeMusicPlaylistDetailScreen(
                     item {
                         PlaylistHeroHeader(
                             title = resolvedPlaylist.title,
-                            subtitle = listOfNotNull(
-                                resolvedPlaylist.subtitle.takeIf { it.isNotBlank() },
-                                stringResource(
-                                    R.string.library_favorite_source_format,
-                                    resolvedTrackCount,
-                                    "YouTube Music"
-                                )
-                            ).joinToString(" · "),
+                            subtitle = resolvedPlaylist.subtitle,
                             cover = resolvedPlaylist.coverUrl.takeUnless { it.isBlank() },
                             onBack = onBack,
-                            onPlay = { if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0) },
+                            onPlay = {
+                                if (currentIndex >= 0) PlayerManager.togglePlayPause()
+                                else if (ui.tracks.isNotEmpty()) onSongClick(ui.tracks, 0)
+                            },
                             playEnabled = ui.tracks.isNotEmpty(),
-                            height = if (isPlaying) 500.dp else 430.dp
+                            isPlaying = isPlaying && currentIndex >= 0,
+                            isFavorite = isFavorite,
+                            onFavoriteClick = ::toggleFavorite,
+                            height = 430.dp
                         )
                     }
 

@@ -332,7 +332,8 @@ fun LibraryScreen(
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize(),
-                    pageSpacing = 0.dp
+                    pageSpacing = 0.dp,
+                    userScrollEnabled = false
                 ) { page ->
                     when (orderedTabs[page]) {
                         LibraryTab.LOCAL -> LocalPlaylistList(

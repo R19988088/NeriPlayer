@@ -366,7 +366,8 @@ fun ExploreScreen(
 
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = false
             ) { page ->
                 val currentSource = orderedSearchSources[page]
                 if (searchQuery.isNotEmpty()) {
@@ -968,10 +969,9 @@ private fun SongRow(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = listOfNotNull(
-                    song.displayArtist().takeIf { it.isNotBlank() },
-                    song.displayAlbum(context).takeIf { it.isNotBlank() }
-                ).joinToString(" · "),
+                text = listOf(song.displayArtist(), song.displayName())
+                    .filter { it.isNotBlank() }
+                    .joinToString(" / "),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
