@@ -1877,7 +1877,7 @@ private fun NeriAppContent(
                                     artist = currentSong?.displayArtist() ?: "",
                                     coverUrl = displayCoverUrl,
                                     isPlaying = isPlaybackControlPlaying,
-                                    modifier = Modifier,
+                                    modifier = Modifier.padding(bottom = with(LocalDensity.current) { bottomBarHeightPx.toDp() }),
                                     onPlayPause = { PlayerManager.togglePlayPause() },
                                     onExpand = { showNowPlaying = true },
                                     backdrop = bottomBarBackdrop,
