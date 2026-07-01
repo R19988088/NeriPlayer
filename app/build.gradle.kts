@@ -154,6 +154,9 @@ android {
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     exclude("**/com/mocharealm/accompanist/lyrics/ui/utils/String.kt")
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
+    }
 }
 
 tasks.withType<Test>().configureEach {
