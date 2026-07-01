@@ -100,6 +100,7 @@ fun LibraryHostScreen(
     onDetailSongClick: (List<SongItem>, Int) -> Unit = onSongClick,
     onPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = { _, _, _ -> },
     onDetailPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = onPlayParts,
+    onOpenNowPlaying: () -> Unit = {},
     onOpenRecent: () -> Unit,
     onOpenStats: () -> Unit = {}
 ) {
@@ -254,6 +255,7 @@ fun LibraryHostScreen(
                                 trackCount = podcast.trackCount,
                                 source = "neteasePodcast"
                             )
+                            onOpenNowPlaying()
                             scope.launch {
                                 try {
                                     val tracks = neteaseDetailViewModel.loadPodcastProgramsForPlayback(podcast)

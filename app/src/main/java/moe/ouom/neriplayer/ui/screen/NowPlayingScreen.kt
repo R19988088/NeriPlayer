@@ -33,6 +33,7 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,6 +44,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -59,6 +61,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
@@ -145,9 +148,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -163,6 +168,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -172,6 +178,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -1842,6 +1851,12 @@ private fun NowPlayingAlbumInfoDialog(
     song: SongItem?,
     onDismiss: () -> Unit
 ) {
+    var visible by remember { mutableStateOf(false) }
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (visible) 0.22f else 0f,
+        animationSpec = tween(180),
+        label = "album_info_scrim"
+    )
     val fallbackAlbumName = song?.album
         ?.removePrefix(PlayerManager.NETEASE_SOURCE_TAG)
         ?.trim()
@@ -1861,52 +1876,95 @@ private fun NowPlayingAlbumInfoDialog(
     val description = albumInfo?.description.orEmpty()
     val publishTime = albumInfo?.publishTime ?: 0L
     val hasAlbum = song != null && song.albumId != 0L && title.isNotBlank()
-    AlertDialog(
+    val shape = RoundedCornerShape(34.dp)
+    LaunchedEffect(Unit) { visible = true }
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = if (hasAlbum) title else stringResource(R.string.common_empty),
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = if (hasAlbum) artist.ifBlank { stringResource(R.string.common_empty) } else stringResource(R.string.common_empty),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    text = description.ifBlank { stringResource(R.string.common_empty) },
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(84.dp)
-                        .padding(top = 28.dp),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = stringResource(
-                        R.string.album_published_at,
-                        if (publishTime > 0L) formatDate(publishTime) else stringResource(R.string.common_empty)
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 28.dp)
-                )
-            }
-        },
-        confirmButton = {
-            HapticTextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_close))
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            dialogWindow?.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            dialogWindow?.setDimAmount(0f)
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = scrimAlpha))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .padding(horizontal = 38.dp)
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 56.dp,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.55f),
+                        spotColor = Color.Black.copy(alpha = 0.55f)
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {},
+                shape = shape,
+                color = Color.White,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 26.dp, vertical = 34.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (hasAlbum) title else stringResource(R.string.common_empty),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color(0xFF222222),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        text = if (hasAlbum) artist.ifBlank { stringResource(R.string.common_empty) } else stringResource(R.string.common_empty),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF444444),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        text = description.ifBlank { stringResource(R.string.common_empty) },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color(0xFF555555),
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 8,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.album_published_at,
+                            if (publishTime > 0L) formatDate(publishTime) else stringResource(R.string.common_empty)
+                        ),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color(0xFF444444),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    HapticTextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.action_close),
+                            color = Color(0xFF6F5962)
+                        )
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 private data class AlbumInfo(
