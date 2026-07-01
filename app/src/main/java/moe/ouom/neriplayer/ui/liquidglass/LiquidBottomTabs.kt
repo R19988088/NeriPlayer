@@ -127,10 +127,11 @@ fun LiquidBottomTabs(
             onTabSelected(index)
         }
 
-        val dampedDragAnimation = remember(animationScope, tabsCount, tabWidth, barWidthPx, isLtr) {
+        val selectedIndex = selectedTabIndex()
+        val dampedDragAnimation = remember(selectedIndex, animationScope, tabsCount, tabWidth, barWidthPx, isLtr) {
             DampedDragAnimation(
                 animationScope = animationScope,
-                initialValue = selectedTabIndex().toFloat(),
+                initialValue = selectedIndex.toFloat(),
                 valueRange = 0f..(tabsCount - 1).toFloat(),
                 visibilityThreshold = 0.001f,
                 initialScale = 1f,

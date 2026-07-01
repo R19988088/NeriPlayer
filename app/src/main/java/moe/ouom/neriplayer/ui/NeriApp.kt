@@ -1143,60 +1143,6 @@ private fun NeriAppContent(
                                     .windowInsetsPadding(WindowInsets.navigationBars)
                                     .imePadding()
                             )
-                        },
-                        bottomBar = {
-                            val bottomBarVisibilityProgress by animateFloatAsState(
-                                targetValue = if (showNowPlaying) 0f else 1f,
-                                animationSpec = tween(
-                                    durationMillis = if (showNowPlaying) 220 else 280,
-                                    easing = FastOutSlowInEasing
-                                ),
-                                label = "bottom_bar_visibility"
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clipToBounds()
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .onSizeChanged { size ->
-                                            if (size.height > 0) {
-                                                bottomBarHeightPx = size.height
-                                            }
-                                        }
-                                        .graphicsLayer {
-                                            translationY =
-                                                (1f - bottomBarVisibilityProgress) * bottomBarHeightPx
-                                                    .toFloat()
-                                            alpha = bottomBarVisibilityProgress
-                                        }
-                                ) {
-                                    AnimatedVisibility(visible = offlineMode) {
-                                        OfflineModeBottomBanner()
-                                    }
-
-                                    NeriBottomBar(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        selectAlpha = selectAlpha,
-                                        backdrop = bottomBarBackdrop,
-                                        items = bottomBarItems,
-                                        currentDestination = backEntry?.destination,
-                                        onItemSelected = { dest ->
-                                            if (currentRoute != dest.route) {
-                                                navController.navigate(dest.route) {
-                                                    popUpTo(navController.graph.startDestinationId) {
-                                                        saveState = true
-                                                    }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
-                            }
                         }
                     ) { innerPadding ->
                         Box(
@@ -2193,6 +2139,59 @@ private fun NeriAppContent(
                                     showNowPlayingTitle = showNowPlayingTitle
                                 )
                             }
+                        }
+                    }
+                    val bottomBarVisibilityProgress by animateFloatAsState(
+                        targetValue = if (showNowPlaying) 0f else 1f,
+                        animationSpec = tween(
+                            durationMillis = if (showNowPlaying) 220 else 280,
+                            easing = FastOutSlowInEasing
+                        ),
+                        label = "bottom_bar_visibility"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .clipToBounds()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .onSizeChanged { size ->
+                                    if (size.height > 0) {
+                                        bottomBarHeightPx = size.height
+                                    }
+                                }
+                                .graphicsLayer {
+                                    translationY =
+                                        (1f - bottomBarVisibilityProgress) * bottomBarHeightPx
+                                            .toFloat()
+                                    alpha = bottomBarVisibilityProgress
+                                }
+                        ) {
+                            AnimatedVisibility(visible = offlineMode) {
+                                OfflineModeBottomBanner()
+                            }
+
+                            NeriBottomBar(
+                                modifier = Modifier.fillMaxWidth(),
+                                selectAlpha = selectAlpha,
+                                backdrop = bottomBarBackdrop,
+                                items = bottomBarItems,
+                                currentDestination = backEntry?.destination,
+                                onItemSelected = { dest ->
+                                    if (currentRoute != dest.route) {
+                                        navController.navigate(dest.route) {
+                                            popUpTo(navController.graph.startDestinationId) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            )
                         }
                     }
                 }
