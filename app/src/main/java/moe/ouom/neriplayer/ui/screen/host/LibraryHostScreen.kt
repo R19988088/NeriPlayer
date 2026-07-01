@@ -255,6 +255,20 @@ fun LibraryHostScreen(
                                 trackCount = podcast.trackCount,
                                 source = "neteasePodcast"
                             )
+                            PlayerManager.showPendingPlaylist(
+                                SongItem(
+                                    id = -podcast.id,
+                                    name = podcast.name,
+                                    artist = podcast.creatorName,
+                                    album = "Netease${podcast.name}",
+                                    albumId = podcast.id,
+                                    durationMs = 0L,
+                                    coverUrl = podcast.picUrl.takeIf { it.isNotBlank() },
+                                    originalCoverUrl = podcast.picUrl.takeIf { it.isNotBlank() },
+                                    channelId = "netease",
+                                    playlistContextId = podcast.id.toString()
+                                )
+                            )
                             onOpenNowPlaying()
                             scope.launch {
                                 try {

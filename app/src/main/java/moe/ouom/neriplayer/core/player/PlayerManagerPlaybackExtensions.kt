@@ -310,6 +310,24 @@ internal fun PlayerManager.playPlaylistImpl(
     scheduleStatePersist()
 }
 
+internal fun PlayerManager.showPendingPlaylistImpl(song: SongItem) {
+    ensureInitialized()
+    if (!initialized) return
+    playJob?.cancel()
+    currentYouTubePrefetchJob?.cancel()
+    currentYouTubePrefetchJob = null
+    currentPlaylist = listOf(song)
+    currentIndex = 0
+    _currentQueueFlow.value = currentPlaylist
+    setCurrentSongForPlayback(song, syncLyricon = false)
+    _currentMediaUrl.value = null
+    _currentPlaybackAudioInfo.value = null
+    _isPlayingFlow.value = false
+    _playWhenReadyFlow.value = false
+    _playbackPositionMs.value = 0L
+    runCatching { player.stop() }
+}
+
 internal fun PlayerManager.rebuildShuffleBag(excludeIndex: Int? = null) {
     shuffleBag = currentPlaylist.indices.toMutableList()
     if (excludeIndex != null) shuffleBag.remove(excludeIndex)
