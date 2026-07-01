@@ -455,10 +455,26 @@ internal fun parseNeteasePodcasts(raw: String): List<PlaylistSummary> {
         val name = obj.optString("name", obj.optString("title", ""))
         val cover = obj.optString("picUrl", obj.optString("coverUrl", ""))
             .replaceFirst("http://", "https://")
+        val creatorName = obj.optJSONObject("dj")?.optString("nickname", "")
+            ?: obj.optJSONObject("creator")?.optString("nickname", "")
+            ?: ""
+        val description = obj.optString("desc", obj.optString("description", ""))
+        val publishTime = obj.optLong("createTime", obj.optLong("publishTime", 0L))
         val playCount = obj.optLong("subCount", obj.optLong("playCount", 0L))
         val programCount = obj.optInt("programCount", obj.optInt("trackCount", 0))
         if (id != 0L && name.isNotBlank()) {
-            result.add(PlaylistSummary(id, name, cover, playCount, programCount))
+            result.add(
+                PlaylistSummary(
+                    id = id,
+                    name = name,
+                    picUrl = cover,
+                    playCount = playCount,
+                    trackCount = programCount,
+                    creatorName = creatorName,
+                    description = description,
+                    publishTime = publishTime
+                )
+            )
         }
     }
     return result

@@ -36,7 +36,10 @@ data class PlaylistSummary(
     val name: String,
     val picUrl: String,
     val playCount: Long,
-    val trackCount: Int
+    val trackCount: Int,
+    val creatorName: String = "",
+    val description: String = "",
+    val publishTime: Long = 0L
 ) : Parcelable
 
 /**
