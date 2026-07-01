@@ -120,6 +120,7 @@ fun LibraryHostScreen(
     val favoriteListSaver: Saver<LazyListState, *> = LazyListState.Saver
     val neteaseAlbumSaver: Saver<LazyListState, *> = LazyListState.Saver
     val neteaseListSaver: Saver<LazyListState, *> = LazyListState.Saver
+    val neteasePodcastSaver: Saver<LazyListState, *> = LazyListState.Saver
     val youtubeMusicListSaver: Saver<LazyListState, *> = LazyListState.Saver
     val biliListSaver: Saver<LazyListState, *> = LazyListState.Saver
     val qqMusicListSaver: Saver<LazyListState, *> = LazyListState.Saver
@@ -134,6 +135,9 @@ fun LibraryHostScreen(
         LazyListState(firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = 0)
     }
     val neteaseAlbumState = rememberSaveable(saver = neteaseAlbumSaver) {
+        LazyListState(firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = 0)
+    }
+    val neteasePodcastState = rememberSaveable(saver = neteasePodcastSaver) {
         LazyListState(firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = 0)
     }
     val youtubeMusicListState = rememberSaveable(saver = youtubeMusicListSaver) {
@@ -175,6 +179,7 @@ fun LibraryHostScreen(
                         favoriteListState = favoriteListState,
                         neteaseAlbumState = neteaseAlbumState,
                         neteaseListState = neteaseListState,
+                        neteasePodcastState = neteasePodcastState,
                         youtubeMusicListState = youtubeMusicListState,
                         biliListState = biliListState,
                         qqMusicListState = qqMusicListState,

@@ -139,17 +139,19 @@ enum class LibraryTab(val labelResId: Int) {
     YTMUSIC(R.string.library_tab_youtube_music),
     NETEASE(R.string.library_tab_netease_playlist),
     NETEASEALBUM(R.string.library_tab_netease_album),
+    NETEASEPODCAST(R.string.library_tab_netease_podcast),
     BILI(R.string.library_tab_bilibili),
     QQMUSIC(R.string.library_tab_qqmusic)
 }
 
 private fun LibraryTab.sourceLabelResId(): Int {
-    return if (this == LibraryTab.NETEASE) R.string.library_source_netease else labelResId
+    return if (asLibrarySource() == LibraryTab.NETEASE) R.string.library_source_netease else labelResId
 }
 
 private enum class NeteaseLibraryMode(val labelResId: Int) {
     PLAYLIST(R.string.library_source_netease_playlists),
-    ALBUM(R.string.library_source_netease_albums)
+    ALBUM(R.string.library_source_netease_albums),
+    PODCAST(R.string.library_source_netease_podcasts)
 }
 
 private fun librarySourceDisplayOrder(isInternational: Boolean): List<LibraryTab> {
@@ -175,14 +177,22 @@ private fun librarySourceDisplayOrder(isInternational: Boolean): List<LibraryTab
 }
 
 private fun LibraryTab.asLibrarySource(): LibraryTab {
-    return if (this == LibraryTab.NETEASEALBUM) LibraryTab.NETEASE else this
+    return if (this == LibraryTab.NETEASEALBUM || this == LibraryTab.NETEASEPODCAST) LibraryTab.NETEASE else this
 }
 
 private fun LibraryTab.asNeteaseMode(): NeteaseLibraryMode {
-    return if (this == LibraryTab.NETEASEALBUM) {
-        NeteaseLibraryMode.ALBUM
-    } else {
-        NeteaseLibraryMode.PLAYLIST
+    return when (this) {
+        LibraryTab.NETEASEALBUM -> NeteaseLibraryMode.ALBUM
+        LibraryTab.NETEASEPODCAST -> NeteaseLibraryMode.PODCAST
+        else -> NeteaseLibraryMode.PLAYLIST
+    }
+}
+
+private fun NeteaseLibraryMode.asLibraryTab(): LibraryTab {
+    return when (this) {
+        NeteaseLibraryMode.ALBUM -> LibraryTab.NETEASEALBUM
+        NeteaseLibraryMode.PODCAST -> LibraryTab.NETEASEPODCAST
+        NeteaseLibraryMode.PLAYLIST -> LibraryTab.NETEASE
     }
 }
 
@@ -195,6 +205,7 @@ fun LibraryScreen(
     favoriteListState: LazyListState,
     neteaseAlbumState: LazyListState,
     neteaseListState: LazyListState,
+    neteasePodcastState: LazyListState,
     youtubeMusicListState: LazyListState,
     biliListState: LazyListState,
     qqMusicListState: LazyListState,
@@ -234,11 +245,7 @@ fun LibraryScreen(
 
     LaunchedEffect(pagerState.currentPage, orderedTabs, initialTab) {
         val currentTab = orderedTabs.getOrNull(pagerState.currentPage) ?: return@LaunchedEffect
-        val callbackTab = if (currentTab == LibraryTab.NETEASE && neteaseMode == NeteaseLibraryMode.ALBUM) {
-            LibraryTab.NETEASEALBUM
-        } else {
-            currentTab
-        }
+        val callbackTab = if (currentTab == LibraryTab.NETEASE) neteaseMode.asLibraryTab() else currentTab
         if (callbackTab != initialTab) {
             onTabChange(callbackTab)
         }
@@ -246,13 +253,7 @@ fun LibraryScreen(
 
     LaunchedEffect(neteaseMode) {
         if (orderedTabs.getOrNull(pagerState.currentPage) == LibraryTab.NETEASE) {
-            onTabChange(
-                if (neteaseMode == NeteaseLibraryMode.ALBUM) {
-                    LibraryTab.NETEASEALBUM
-                } else {
-                    LibraryTab.NETEASE
-                }
-            )
+            onTabChange(neteaseMode.asLibraryTab())
         }
     }
 
@@ -366,15 +367,19 @@ fun LibraryScreen(
                         LibraryTab.NETEASE -> NeteasePlaylistList(
                             playlists = ui.neteasePlaylists,
                             albums = ui.neteaseAlbums,
+                            podcasts = ui.neteasePodcasts,
                             listState = neteaseListState,
                             albumListState = neteaseAlbumState,
+                            podcastListState = neteasePodcastState,
                             mode = neteaseMode,
                             onModeChange = { neteaseMode = it },
                             onClick = onNeteasePlaylistClick,
-                            onAlbumClick = onNeteaseAlbumClick
+                            onAlbumClick = onNeteaseAlbumClick,
+                            onPodcastClick = onNeteasePlaylistClick
                         )
 
                         LibraryTab.NETEASEALBUM -> Unit
+                        LibraryTab.NETEASEPODCAST -> Unit
 
                         LibraryTab.YTMUSIC -> YouTubeMusicPlaylistList(
                             playlists = ui.youtubeMusicPlaylists,
@@ -1445,25 +1450,34 @@ private fun LocalPlaylistList(
 private fun NeteasePlaylistList(
     playlists: List<PlaylistSummary>,
     albums: List<AlbumSummary>,
+    podcasts: List<PlaylistSummary>,
     listState: LazyListState,
     albumListState: LazyListState,
+    podcastListState: LazyListState,
     mode: NeteaseLibraryMode,
     onModeChange: (NeteaseLibraryMode) -> Unit,
     onClick: (PlaylistSummary) -> Unit,
-    onAlbumClick: (AlbumSummary) -> Unit
+    onAlbumClick: (AlbumSummary) -> Unit,
+    onPodcastClick: (PlaylistSummary) -> Unit
 ) {
     NeteaseLibrarySourceContent(
         selectedMode = mode,
         onModeChange = onModeChange
     ) {
-        if (mode == NeteaseLibraryMode.ALBUM) {
-            NeteaseAlbumList(
+        when (mode) {
+            NeteaseLibraryMode.ALBUM -> NeteaseAlbumList(
                 playlists = albums,
                 listState = albumListState,
                 onClick = onAlbumClick
             )
-        } else {
-            NeteasePlaylistRows(
+            NeteaseLibraryMode.PODCAST -> NeteasePlaylistRows(
+                playlists = podcasts,
+                listState = podcastListState,
+                onClick = onPodcastClick,
+                emptyTextResId = R.string.library_netease_podcast_empty,
+                isPodcast = true
+            )
+            NeteaseLibraryMode.PLAYLIST -> NeteasePlaylistRows(
                 playlists = playlists,
                 listState = listState,
                 onClick = onClick
@@ -1501,7 +1515,9 @@ private fun NeteaseLibrarySourceContent(
 private fun NeteasePlaylistRows(
     playlists: List<PlaylistSummary>,
     listState: LazyListState,
-    onClick: (PlaylistSummary) -> Unit
+    onClick: (PlaylistSummary) -> Unit,
+    emptyTextResId: Int = R.string.library_netease_playlist_empty,
+    isPodcast: Boolean = false
 ) {
     val context = LocalContext.current
     val miniPlayerHeight = LocalMiniPlayerHeight.current
@@ -1572,7 +1588,7 @@ private fun NeteasePlaylistRows(
                 ) {
                     ListItem(
                         headlineContent = {
-                            Text(stringResource(R.string.library_netease_playlist_empty))
+                            Text(stringResource(emptyTextResId))
                         },
                         supportingContent = {
                             Text(
@@ -1613,11 +1629,15 @@ private fun NeteasePlaylistRows(
                     headlineContent = { Text(pl.name) },
                     supportingContent = {
                         Text(
-                            stringResource(
-                                R.string.home_play_count_format,
-                                formatPlayCount(context, pl.playCount),
-                                pl.trackCount
-                            ),
+                            if (isPodcast) {
+                                pluralStringResource(R.plurals.library_program_count, pl.trackCount, pl.trackCount)
+                            } else {
+                                stringResource(
+                                    R.string.home_play_count_format,
+                                    formatPlayCount(context, pl.playCount),
+                                    pl.trackCount
+                                )
+                            },
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },

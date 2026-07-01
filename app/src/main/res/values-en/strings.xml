@@ -1430,12 +1430,14 @@
     <string name="library_tab_favorite">Favorites</string>
     <string name="library_tab_netease_playlist">Netease - Playlists</string>
     <string name="library_tab_netease_album">Netease - Albums</string>
+    <string name="library_tab_netease_podcast">Netease - Podcasts</string>
     <string name="library_tab_youtube_music">YouTube Music</string>
     <string name="library_tab_bilibili">Bilibili</string>
     <string name="library_tab_qqmusic">QQ Music</string>
     <string name="library_source_netease">NetEase Cloud Music</string>
     <string name="library_source_netease_playlists">Playlists</string>
     <string name="library_source_netease_albums">Albums</string>
+    <string name="library_source_netease_podcasts">Podcasts</string>
     <string name="library_create_playlist_default">New Playlist</string>
     <string name="library_name_reserved">This name is reserved for \"%s\", please choose another name~</string>
     <string name="library_name_exists">A playlist with this name already exists, please choose another name</string>
@@ -1446,6 +1448,7 @@
     <string name="library_netease_search_empty_hint">Try a name, ID, play count, or track count</string>
     <string name="library_netease_playlist_empty">No NetEase playlists loaded yet</string>
     <string name="library_netease_album_empty">No NetEase albums loaded yet</string>
+    <string name="library_netease_podcast_empty">No NetEase podcasts loaded yet</string>
     <string name="library_bili_empty">No Bilibili favorites or collections loaded yet</string>
     <string name="library_bili_hint">Sign in to Bilibili to load created favorites, subscribed favorites, and saved collections</string>
     <string name="library_bili_search_hint">Search favorites / collections</string>

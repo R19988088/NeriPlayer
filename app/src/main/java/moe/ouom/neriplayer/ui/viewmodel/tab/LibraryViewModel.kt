@@ -53,6 +53,7 @@ data class LibraryUiState(
     val localPlaylists: List<LocalPlaylist> = emptyList(),
     val neteasePlaylists: List<PlaylistSummary> = emptyList(),
     val neteaseAlbums: List<AlbumSummary> = emptyList(),
+    val neteasePodcasts: List<PlaylistSummary> = emptyList(),
     val neteaseError: String? = null,
     val youtubeMusicPlaylists: List<YouTubeMusicPlaylist> = emptyList(),
     val youtubeMusicError: String? = null,
@@ -111,6 +112,21 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 } else {
                     _uiState.value = _uiState.value.copy(
                         neteaseAlbums = emptyList(),
+                        neteaseError = null
+                    )
+                }
+            }
+        }
+        // 网易云 播客
+        viewModelScope.launch {
+            neteaseCookieRepo.cookieFlow.collect { cookies ->
+                val mutable = cookies.toMutableMap()
+                mutable.putIfAbsent("os", "pc")
+                if (!cookies["MUSIC_U"].isNullOrBlank()) {
+                    refreshNeteasePodcasts()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        neteasePodcasts = emptyList(),
                         neteaseError = null
                     )
                 }
@@ -290,6 +306,23 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun refreshNeteasePodcasts() {
+        viewModelScope.launch {
+            try {
+                val uid = withContext(Dispatchers.IO) { neteaseClient.getCurrentUserId() }
+                val raw = withContext(Dispatchers.IO) { neteaseClient.getUserDjRadios(uid) }
+                _uiState.value = _uiState.value.copy(
+                    neteasePodcasts = parseNeteasePodcasts(raw),
+                    neteaseError = null
+                )
+            } catch (e: IOException) {
+                _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            }
+        }
+    }
+
     fun refreshYouTubeMusicPlaylists() {
         viewModelScope.launch {
             try {
@@ -389,4 +422,26 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             trackCount = playlist.trackCount ?: 0
         )
     }
+}
+
+internal fun parseNeteasePodcasts(raw: String): List<PlaylistSummary> {
+    val root = JSONObject(raw)
+    if (root.optInt("code", -1) != 200) return emptyList()
+    val arr = root.optJSONArray("djRadios")
+        ?: root.optJSONArray("data")
+        ?: return emptyList()
+    val result = mutableListOf<PlaylistSummary>()
+    for (i in 0 until arr.length()) {
+        val obj = arr.optJSONObject(i) ?: continue
+        val id = obj.optLong("id", obj.optLong("radioId", 0L))
+        val name = obj.optString("name", obj.optString("title", ""))
+        val cover = obj.optString("picUrl", obj.optString("coverUrl", ""))
+            .replaceFirst("http://", "https://")
+        val playCount = obj.optLong("subCount", obj.optLong("playCount", 0L))
+        val programCount = obj.optInt("programCount", obj.optInt("trackCount", 0))
+        if (id != 0L && name.isNotBlank()) {
+            result.add(PlaylistSummary(id, name, cover, playCount, programCount))
+        }
+    }
+    return result
 }

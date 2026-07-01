@@ -1445,12 +1445,14 @@
     <string name="library_tab_favorite">收藏</string>
     <string name="library_tab_netease_playlist">网易云 - 歌单</string>
     <string name="library_tab_netease_album">网易云 - 专辑</string>
+    <string name="library_tab_netease_podcast">网易云 - 播客</string>
     <string name="library_tab_youtube_music">YouTube Music</string>
     <string name="library_tab_bilibili">哔哩哔哩</string>
     <string name="library_tab_qqmusic">QQ音乐</string>
     <string name="library_source_netease">网易云音乐</string>
     <string name="library_source_netease_playlists">歌单</string>
     <string name="library_source_netease_albums">专辑</string>
+    <string name="library_source_netease_podcasts">播客</string>
     <string name="library_create_playlist_default">新建歌单</string>
     <string name="library_name_reserved">该名称已保留为\"%s\"，请换一个名称哦~</string>
     <string name="library_name_exists">已存在同名歌单，请换一个名称</string>
@@ -1461,6 +1463,7 @@
     <string name="library_netease_search_empty_hint">试试输入名称、ID、播放数或曲目数</string>
     <string name="library_netease_playlist_empty">还没有加载到网易云歌单</string>
     <string name="library_netease_album_empty">还没有加载到网易云专辑</string>
+    <string name="library_netease_podcast_empty">还没有加载到网易云播客</string>
     <string name="library_bili_empty">还没有加载到 B 站收藏夹或合集</string>
     <string name="library_bili_hint">确认已登录 B 站后，会加载创建的收藏夹、订阅收藏夹和收藏的合集</string>
     <string name="library_bili_search_hint">搜索收藏夹 / 合集</string>

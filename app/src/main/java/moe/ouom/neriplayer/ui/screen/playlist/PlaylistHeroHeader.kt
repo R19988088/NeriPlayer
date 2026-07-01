@@ -1,9 +1,11 @@
 package moe.ouom.neriplayer.ui.screen.playlist
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,11 +46,15 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import moe.ouom.neriplayer.R
+import moe.ouom.neriplayer.ui.liquidglass.SurfaceLiquidCapsule
 import moe.ouom.neriplayer.util.CoverArtColorCache
 import moe.ouom.neriplayer.util.HapticIconButton
 import moe.ouom.neriplayer.util.adjustedAccentColorArgb
@@ -88,6 +95,7 @@ internal fun PlaylistHeroHeader(
     isPlaying: Boolean,
     isFavorite: Boolean,
     onFavoriteClick: () -> Unit,
+    onInfoClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     height: Dp = 430.dp
 ) {
@@ -138,30 +146,36 @@ internal fun PlaylistHeroHeader(
                 }
         )
 
-        HapticIconButton(
-            onClick = onBack,
+        SurfaceLiquidCapsule(
             modifier = Modifier
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(start = 16.dp, top = 12.dp)
-                .size(54.dp)
-                .clip(RoundedCornerShape(50))
-                .background(Color.White.copy(alpha = 0.42f))
+                .size(64.dp),
+            pill = true
         ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.cd_back),
-                tint = Color.Black.copy(alpha = 0.82f)
-            )
+            HapticIconButton(
+                onClick = onBack,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_back),
+                    tint = textColor
+                )
+            }
         }
 
-        Row(
+        val infoText = listOf(title, subtitle).filter { it.isNotBlank() }.joinToString("\n")
+
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(Modifier.weight(1f)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineMedium.copy(
@@ -169,7 +183,8 @@ internal fun PlaylistHeroHeader(
                     ),
                     color = textColor,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
                 )
                 if (subtitle.isNotBlank()) {
                     Text(
@@ -177,41 +192,87 @@ internal fun PlaylistHeroHeader(
                         style = MaterialTheme.typography.bodyMedium,
                         color = textColor.copy(alpha = 0.78f),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
 
-            HapticIconButton(
-                onClick = onPlay,
-                enabled = playEnabled,
-                modifier = Modifier
-                    .padding(horizontal = 18.dp)
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.52f))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = stringResource(R.string.player_play_all),
-                    tint = Color.Black.copy(alpha = 0.72f),
-                    modifier = Modifier.size(40.dp)
-                )
-            }
+                PlaylistHeroCircleButton(
+                    onClick = onInfoClick ?: {
+                        Toast.makeText(context, infoText.ifBlank { title }, Toast.LENGTH_SHORT).show()
+                    },
+                    size = 54.dp,
+                    contentDescription = stringResource(R.string.action_details),
+                    tint = textColor
+                ) {
+                    Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(30.dp))
+                }
 
-            HapticIconButton(
-                onClick = onFavoriteClick,
-                modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.28f))
-            ) {
-                Icon(
-                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = null,
+                HapticIconButton(
+                    onClick = onPlay,
+                    enabled = playEnabled,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.52f))
+                ) {
+                    Icon(
+                        if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.player_play_all),
+                        tint = Color.Black.copy(alpha = 0.72f),
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+
+                PlaylistHeroCircleButton(
+                    onClick = onFavoriteClick,
+                    size = 54.dp,
+                    contentDescription = if (isFavorite) {
+                        stringResource(R.string.nowplaying_favorited)
+                    } else {
+                        stringResource(R.string.nowplaying_favorite)
+                    },
                     tint = textColor,
-                    modifier = Modifier.size(30.dp)
-                )
+                    active = isFavorite
+                ) {
+                    Icon(
+                        if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistHeroCircleButton(
+    onClick: () -> Unit,
+    size: Dp,
+    contentDescription: String,
+    tint: Color,
+    active: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    HapticIconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = if (active) 0.18f else 0.05f))
+            .semantics { this.contentDescription = contentDescription }
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.material3.LocalContentColor provides tint
+            ) {
+                content()
             }
         }
     }
