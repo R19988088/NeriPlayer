@@ -246,6 +246,25 @@ fun LibraryHostScreen(
                                 }
                             }
                         },
+                        onNeteasePodcastClick = { podcast ->
+                            AppContainer.playlistUsageRepo.recordOpen(
+                                id = podcast.id,
+                                name = podcast.name,
+                                picUrl = podcast.picUrl,
+                                trackCount = podcast.trackCount,
+                                source = "neteasePodcast"
+                            )
+                            scope.launch {
+                                try {
+                                    val tracks = neteaseDetailViewModel.loadPodcastProgramsForPlayback(podcast)
+                                    if (tracks.isNotEmpty()) {
+                                        onSongClick(tracks, 0)
+                                    }
+                                } catch (error: Exception) {
+                                    NPLogger.e("LibraryHostScreen", "load netease podcast failed", error)
+                                }
+                            }
+                        },
                         onYouTubeMusicPlaylistClick = { playlist ->
                             selected = LibrarySelectedItem.YouTubeMusic(playlist)
                             AppContainer.playlistUsageRepo.recordOpen(

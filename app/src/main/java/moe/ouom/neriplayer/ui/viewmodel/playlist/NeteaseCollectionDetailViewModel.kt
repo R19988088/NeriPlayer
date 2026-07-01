@@ -266,6 +266,11 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         ).tracks
     }
 
+    suspend fun loadPodcastProgramsForPlayback(podcast: PlaylistSummary): List<SongItem> {
+        val raw = withContext(Dispatchers.IO) { client.getDjRadioPrograms(podcast.id) }
+        return parsePodcastPrograms(raw, podcast)
+    }
+
     private fun toHttps(url: String?): String? =
         url?.replaceFirst(Regex("^http://"), "https://")
 
@@ -358,6 +363,45 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
             }
         }
         return ParsedDetail(header, list)
+    }
+
+    private fun parsePodcastPrograms(raw: String, podcast: PlaylistSummary): List<SongItem> {
+        val root = JSONObject(raw)
+        val code = root.optInt("code", -1)
+        require(code == 200) { getApplication<Application>().getString(R.string.error_api_code, code) }
+        val programs = root.optJSONArray("programs") ?: root.optJSONObject("data")?.optJSONArray("programs") ?: return emptyList()
+        val out = mutableListOf<SongItem>()
+        for (i in 0 until programs.length()) {
+            val program = programs.optJSONObject(i) ?: continue
+            val mainSong = program.optJSONObject("mainSong")
+            val songId = mainSong?.optLong("id", 0L)?.takeIf { it != 0L }
+                ?: program.optLong("mainSongId", 0L).takeIf { it != 0L }
+                ?: continue
+            val programId = program.optLong("id", songId)
+            val name = program.optString("name", mainSong?.optString("name", "") ?: "")
+            if (name.isBlank()) continue
+            val cover = resolveNeteaseCollectionCoverUrl(
+                primary = program.optString("coverUrl", ""),
+                fallback = podcast.picUrl
+            )
+            val duration = mainSong?.let { it.optLong("duration", it.optLong("dt", 0L)) } ?: 0L
+            out.add(
+                SongItem(
+                    id = programId,
+                    name = name,
+                    artist = podcast.creatorName,
+                    album = "Netease${podcast.name}",
+                    albumId = podcast.id,
+                    durationMs = duration,
+                    coverUrl = cover.takeIf { it.isNotBlank() },
+                    originalCoverUrl = cover.takeIf { it.isNotBlank() },
+                    channelId = "netease",
+                    audioId = songId.toString(),
+                    playlistContextId = podcast.id.toString()
+                )
+            )
+        }
+        return out
     }
     
     private data class ParsedDetail(

@@ -418,6 +418,18 @@ class NeteaseClient {
     }
 
     @Throws(IOException::class)
+    fun getDjRadioPrograms(radioId: Long, offset: Int = 0, limit: Int = 1000): String {
+        val url = "https://music.163.com/weapi/dj/program/byradio"
+        val params = mutableMapOf<String, Any>(
+            "radioId" to radioId.toString(),
+            "offset" to offset.toString(),
+            "limit" to limit.toString(),
+            "asc" to "false"
+        )
+        return request(url, params, CryptoMode.WEAPI, "POST", usePersistedCookies = true)
+    }
+
+    @Throws(IOException::class)
     fun getAlbumDetail(albumId: Long, n: Int = 100000, s: Int = 8): String {
         val url = "https://interface.music.163.com/weapi/v1/album/$albumId"
         val params = mutableMapOf<String, Any>(

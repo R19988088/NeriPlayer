@@ -242,9 +242,11 @@ import moe.ouom.neriplayer.util.HapticFilledIconButton
 import moe.ouom.neriplayer.util.HapticIconButton
 import moe.ouom.neriplayer.util.HapticTextButton
 import moe.ouom.neriplayer.util.NPLogger
+import moe.ouom.neriplayer.util.formatDate
 import moe.ouom.neriplayer.util.formatDuration
 import moe.ouom.neriplayer.util.offlineCachedImageRequest
 import moe.ouom.neriplayer.util.saveCoverToPictures
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -418,7 +420,7 @@ fun NowPlayingScreen(
     var showLyricsScreen by remember { mutableStateOf(false) }
     var showCoverMenu by remember { mutableStateOf(false) }
     var showTopMoreOptions by remember { mutableStateOf(false) }
-    var showAlbumEmptyDialog by remember { mutableStateOf(false) }
+    var showAlbumInfoDialog by remember { mutableStateOf(false) }
     var showSongNameMenu by remember { mutableStateOf(false) }
     var showArtistMenu by remember { mutableStateOf(false) }
     var showQualitySwitchDialog by remember { mutableStateOf(false) }
@@ -814,25 +816,7 @@ fun NowPlayingScreen(
                     ) {
                         HapticIconButton(
                             onClick = {
-                                val song = currentSong
-                                if (
-                                    song != null &&
-                                    song.albumId != 0L &&
-                                    song.album.startsWith(PlayerManager.NETEASE_SOURCE_TAG)
-                                ) {
-                                    val albumName = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG)
-                                    onEnterAlbum(
-                                        AlbumSummary(
-                                            id = song.albumId,
-                                            name = albumName,
-                                            size = 0,
-                                            picUrl = song.displayCoverUrl() ?: ""
-                                        )
-                                    )
-                                    onNavigateUp()
-                                } else {
-                                    showAlbumEmptyDialog = true
-                                }
+                                showAlbumInfoDialog = true
                             },
                             modifier = Modifier.size(48.dp)
                         ) {
@@ -906,16 +890,10 @@ fun NowPlayingScreen(
                         )
                     }
 
-                    if (showAlbumEmptyDialog) {
-                        AlertDialog(
-                            onDismissRequest = { showAlbumEmptyDialog = false },
-                            title = { Text(stringResource(R.string.common_album_detail)) },
-                            text = { Text(stringResource(R.string.common_empty)) },
-                            confirmButton = {
-                                HapticTextButton(onClick = { showAlbumEmptyDialog = false }) {
-                                    Text(stringResource(R.string.action_close))
-                                }
-                            }
+                    if (showAlbumInfoDialog) {
+                        NowPlayingAlbumInfoDialog(
+                            song = currentSong,
+                            onDismiss = { showAlbumInfoDialog = false }
                         )
                     }
 
@@ -1856,6 +1834,108 @@ fun NowPlayingQualityOptionsDialog(
                 Text(stringResource(R.string.action_close))
             }
         }
+    )
+}
+
+@Composable
+private fun NowPlayingAlbumInfoDialog(
+    song: SongItem?,
+    onDismiss: () -> Unit
+) {
+    val fallbackAlbumName = song?.album
+        ?.removePrefix(PlayerManager.NETEASE_SOURCE_TAG)
+        ?.trim()
+        .orEmpty()
+    var albumInfo by remember(song?.albumId) { mutableStateOf<AlbumInfo?>(null) }
+    LaunchedEffect(song?.albumId) {
+        albumInfo = null
+        val albumId = song?.albumId ?: return@LaunchedEffect
+        if (albumId == 0L) return@LaunchedEffect
+        albumInfo = runCatching {
+            val raw = withContext(Dispatchers.IO) { AppContainer.neteaseClient.getAlbumDetail(albumId) }
+            parseAlbumInfo(raw)
+        }.getOrNull()
+    }
+    val title = albumInfo?.name ?: fallbackAlbumName
+    val artist = albumInfo?.artist ?: song?.artist.orEmpty()
+    val description = albumInfo?.description.orEmpty()
+    val publishTime = albumInfo?.publishTime ?: 0L
+    val hasAlbum = song != null && song.albumId != 0L && title.isNotBlank()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (hasAlbum) title else stringResource(R.string.common_empty),
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = if (hasAlbum) artist.ifBlank { stringResource(R.string.common_empty) } else stringResource(R.string.common_empty),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = description.ifBlank { stringResource(R.string.common_empty) },
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(84.dp)
+                        .padding(top = 28.dp),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(
+                        R.string.album_published_at,
+                        if (publishTime > 0L) formatDate(publishTime) else stringResource(R.string.common_empty)
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp)
+                )
+            }
+        },
+        confirmButton = {
+            HapticTextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_close))
+            }
+        }
+    )
+}
+
+private data class AlbumInfo(
+    val name: String,
+    val artist: String,
+    val description: String,
+    val publishTime: Long
+)
+
+private fun parseAlbumInfo(raw: String): AlbumInfo? {
+    val root = JSONObject(raw)
+    if (root.optInt("code", -1) != 200) return null
+    val album = root.optJSONObject("album") ?: return null
+    val artists = album.optJSONArray("artists")
+    val artist = buildString {
+        if (artists != null) {
+            for (i in 0 until artists.length()) {
+                val name = artists.optJSONObject(i)?.optString("name").orEmpty()
+                if (name.isBlank()) continue
+                if (isNotEmpty()) append(" / ")
+                append(name)
+            }
+        }
+    }
+    return AlbumInfo(
+        name = album.optString("name", ""),
+        artist = artist,
+        description = album.optString("description", ""),
+        publishTime = album.optLong("publishTime", 0L)
     )
 }
 

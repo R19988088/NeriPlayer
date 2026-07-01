@@ -40,7 +40,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -92,7 +91,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -102,11 +100,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -130,7 +125,6 @@ import moe.ouom.neriplayer.ui.viewmodel.tab.YouTubeMusicPlaylist
 import moe.ouom.neriplayer.ui.viewmodel.tab.favoriteId
 import moe.ouom.neriplayer.util.HapticIconButton
 import moe.ouom.neriplayer.util.HapticTextButton
-import moe.ouom.neriplayer.util.formatDate
 import moe.ouom.neriplayer.util.formatPlayCount
 import moe.ouom.neriplayer.util.offlineCachedImageRequest
 import org.burnoutcrew.reorderable.ItemPosition
@@ -218,6 +212,7 @@ fun LibraryScreen(
     onLocalPlaylistClick: (LocalPlaylist) -> Unit = {},
     onNeteasePlaylistClick: (PlaylistSummary) -> Unit = {},
     onNeteaseAlbumClick: (AlbumSummary) -> Unit = {},
+    onNeteasePodcastClick: (PlaylistSummary) -> Unit = {},
     onYouTubeMusicPlaylistClick: (YouTubeMusicPlaylist) -> Unit = {},
     onBiliPlaylistClick: (BiliPlaylist) -> Unit = {},
     onOpenRecent: () -> Unit = {},
@@ -240,7 +235,6 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     var sourceMenuExpanded by remember { mutableStateOf(false) }
     var neteaseMode by rememberSaveable { mutableStateOf(initialTab.asNeteaseMode()) }
-    var selectedPodcast by remember { mutableStateOf<PlaylistSummary?>(null) }
 
     LaunchedEffect(initialTab, orderedTabs) {
         val targetPage = orderedTabs.indexOf(initialTab.asLibrarySource()).takeIf { it >= 0 } ?: 0
@@ -286,13 +280,8 @@ fun LibraryScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .blur(if (selectedPodcast != null) 8.dp else 0.dp)
-        ) {
-            TopAppBar(
+    Column(Modifier.fillMaxSize()) {
+        TopAppBar(
             title = {
                 Box {
                     TextButton(onClick = { sourceMenuExpanded = true }) {
@@ -396,7 +385,7 @@ fun LibraryScreen(
                             onModeChange = { neteaseMode = it },
                             onClick = onNeteasePlaylistClick,
                             onAlbumClick = onNeteaseAlbumClick,
-                            onPodcastClick = { selectedPodcast = it }
+                            onPodcastClick = onNeteasePodcastClick
                         )
 
                         LibraryTab.NETEASEALBUM -> Unit
@@ -422,76 +411,6 @@ fun LibraryScreen(
                         )
                     }
                 }
-            }
-        }
-        }
-        selectedPodcast?.let { podcast ->
-            PodcastInfoDialog(
-                podcast = podcast,
-                onDismiss = { selectedPodcast = null }
-            )
-        }
-    }
-}
-
-@Composable
-private fun PodcastInfoDialog(
-    podcast: PlaylistSummary,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 36.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = podcast.name,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = podcast.creatorName.ifBlank { stringResource(R.string.common_empty) },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 28.dp)
-                )
-                Text(
-                    text = podcast.description.ifBlank { stringResource(R.string.common_empty) },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(84.dp)
-                        .padding(top = 28.dp),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = if (podcast.publishTime > 0L) {
-                        stringResource(R.string.podcast_published_at, formatDate(podcast.publishTime))
-                    } else {
-                        stringResource(R.string.podcast_published_at, stringResource(R.string.common_empty))
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 28.dp)
-                )
             }
         }
     }
