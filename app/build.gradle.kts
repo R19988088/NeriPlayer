@@ -101,6 +101,9 @@ android {
             )
         }
         debug {
+            ndk {
+                abiFilters += defaultReleaseAbiFilters
+            }
             signingConfig = if (releaseSigningConfig.storeFile?.exists() == true) {
                 releaseSigningConfig
             } else {

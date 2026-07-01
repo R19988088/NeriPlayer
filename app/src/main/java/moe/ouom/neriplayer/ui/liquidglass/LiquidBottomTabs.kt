@@ -75,7 +75,7 @@ fun LiquidBottomTabs(
     val accentColor =
         if (isLightTheme) TabAccentLight
         else TabAccentDark
-    val surfaceColor = liquidSurfaceColor(isLightTheme)
+    val surfaceColor = Color.Transparent
 
     val tabsBackdrop = rememberLayerBackdrop()
 
