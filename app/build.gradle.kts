@@ -182,9 +182,7 @@ tasks.withType<Test>().configureEach {
 
 android.applicationVariants.all {
     outputs.all {
-        if (this is com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            && !outputFileName.lowercase().contains("debug")
-        ) {
+        if (this is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
             val versionName = project.android.defaultConfig.versionName ?: "dev"
             val abiName = filters
                 .find { it.filterType == FilterConfiguration.FilterType.ABI.name }

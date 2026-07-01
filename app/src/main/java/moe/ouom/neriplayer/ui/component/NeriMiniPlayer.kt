@@ -23,16 +23,9 @@ package moe.ouom.neriplayer.ui.component
  * Created: 2025/8/8
  */
 
-import android.os.Build
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,12 +36,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -56,19 +53,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import moe.ouom.neriplayer.R
-import moe.ouom.neriplayer.util.fastScrollableImageRequest
+import moe.ouom.neriplayer.ui.liquidglass.drawLiquidGlassStroke
+import moe.ouom.neriplayer.ui.liquidglass.liquidSurfaceColor
 import moe.ouom.neriplayer.util.HapticIconButton
+import moe.ouom.neriplayer.util.fastScrollableImageRequest
 
 object NeriMiniPlayerDefaults {
     val Height = 64.dp
@@ -83,32 +85,31 @@ fun NeriMiniPlayer(
     modifier: Modifier = Modifier,
     onPlayPause: () -> Unit,
     onExpand: () -> Unit,
-    hazeState: HazeState,
-    enableHaze: Boolean = true
+    backdrop: Backdrop,
 ) {
     val shape = RoundedCornerShape(26.dp)
-    val supportsBlur = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val hazeContainerAlpha = if (supportsBlur && enableHaze) 0.34f else 0.9f
+    val isLightTheme = !isSystemInDarkTheme()
 
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(
-                alpha = hazeContainerAlpha
-            )
-        ),
-        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.3f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-        shape = shape,
+    Box(
         modifier = modifier
             .height(NeriMiniPlayerDefaults.Height)
             .padding(start = 18.dp, end = 18.dp, bottom = 8.dp)
-            .shadow(18.dp, shape, clip = false)
+            .graphicsLayer { clip = false }
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    blur(2f.dp.toPx())
+                    lens((12f * 1.5f).dp.toPx(), (24f * 1.5f).dp.toPx())
+                },
+                onDrawSurface = {
+                    drawRect(liquidSurfaceColor(isLightTheme))
+                    drawLiquidGlassStroke()
+                },
+            )
             .clip(shape)
             .clickable { onExpand() }
-            .then(
-                if (supportsBlur && enableHaze) Modifier.hazeChild(state = hazeState, shape = shape)
-                else Modifier
-            )
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

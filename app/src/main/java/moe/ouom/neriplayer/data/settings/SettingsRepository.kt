@@ -26,6 +26,7 @@ package moe.ouom.neriplayer.data.settings
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -46,6 +47,7 @@ import java.util.Locale
 
 class SettingsRepository(private val context: Context) {
     private val autoSettingsRepository = AutoSettingsRepository(context)
+    private val libraryLastTabKey = stringPreferencesKey("library_last_tab")
 
     val dynamicColorFlow: Flow<Boolean> =
         context.dataStore.data.map { it[SettingsKeys.DYNAMIC_COLOR] ?: true }
@@ -309,6 +311,9 @@ class SettingsRepository(private val context: Context) {
 
     val internationalizationEnabledFlow: Flow<Boolean> =
         context.dataStore.data.map { it[SettingsKeys.INTERNATIONALIZATION_ENABLED] ?: defaultInternationalization }
+
+    val libraryLastTabFlow: Flow<String> =
+        context.dataStore.data.map { it[libraryLastTabKey] ?: "LOCAL" }
 
     suspend fun setDynamicColor(value: Boolean) {
         context.dataStore.edit { it[SettingsKeys.DYNAMIC_COLOR] = value }
@@ -770,6 +775,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setInternationalizationEnabled(enabled: Boolean) {
         context.dataStore.edit { it[SettingsKeys.INTERNATIONALIZATION_ENABLED] = enabled }
+    }
+
+    suspend fun setLibraryLastTab(tabName: String) {
+        context.dataStore.edit { it[libraryLastTabKey] = tabName }
     }
 }
 

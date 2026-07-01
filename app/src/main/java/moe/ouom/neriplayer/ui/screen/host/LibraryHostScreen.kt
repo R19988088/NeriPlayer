@@ -37,8 +37,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import moe.ouom.neriplayer.ui.screen.playlist.LocalPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteaseAlbumDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteasePlaylistDetailScreen
@@ -94,8 +98,12 @@ fun LibraryHostScreen(
     var selected by rememberSaveable(stateSaver = librarySelectedItemSaver) {
         mutableStateOf(null)
     }
-    // 保存当前选中的标签页类型，避免国际化切换后索引错位
+    val scope = rememberCoroutineScope()
+    val storedTabName by AppContainer.settingsRepo.libraryLastTabFlow.collectAsState(initial = "LOCAL")
     var selectedTab by rememberSaveable { mutableStateOf(LibraryTab.LOCAL) }
+    LaunchedEffect(storedTabName) {
+        selectedTab = runCatching { LibraryTab.valueOf(storedTabName) }.getOrDefault(LibraryTab.LOCAL)
+    }
     val libraryStateHolder = rememberSaveableStateHolder()
     PredictiveBackHandler(enabled = selected != null) { progress ->
         try {
@@ -155,7 +163,12 @@ fun LibraryHostScreen(
                 libraryStateHolder.SaveableStateProvider("library_screen") {
                     LibraryScreen(
                         initialTab = selectedTab,
-                        onTabChange = { selectedTab = it },
+                        onTabChange = { tab ->
+                            selectedTab = tab
+                            scope.launch {
+                                AppContainer.settingsRepo.setLibraryLastTab(tab.name)
+                            }
+                        },
                         localListState = localListState,
                         favoriteListState = favoriteListState,
                         neteaseAlbumState = neteaseAlbumState,

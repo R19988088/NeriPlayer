@@ -124,6 +124,8 @@ import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import coil.size.Precision
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.google.gson.Gson
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
@@ -860,6 +862,7 @@ private fun NeriAppContent(
         else -> false
     }
     val hazeState = remember { HazeState() }
+    val bottomBarBackdrop = rememberLayerBackdrop()
     val preferredQuality by repo.audioQualityFlow.collectAsState(initial = "exhigh")
     val youtubePreferredQuality by repo.youtubeAudioQualityFlow.collectAsState(initial = "very_high")
     val biliPreferredQuality by repo.biliAudioQualityFlow.collectAsState(initial = "high")
@@ -1106,9 +1109,6 @@ private fun NeriAppContent(
                 } else Color.Transparent
 
                 val selectAlpha = if (backgroundImageUri == null) 1f else 0f
-                val bottomBarHazeModifier =
-                    if (effectiveAdvancedBlurEnabled) Modifier.hazeChild(state = hazeState) else Modifier
-
                 val currentSong by PlayerManager.currentSongFlow.collectAsState()
                 val isMiniPlayerVisible = currentSong != null && !showNowPlaying
                 val isPlaybackControlPlaying by PlayerManager.playbackControlPlayingFlow.collectAsState()
@@ -1172,7 +1172,6 @@ private fun NeriAppContent(
                                                     .toFloat()
                                             alpha = bottomBarVisibilityProgress
                                         }
-                                        .then(bottomBarHazeModifier)
                                 ) {
                                     AnimatedVisibility(visible = offlineMode) {
                                         OfflineModeBottomBanner()
@@ -1181,8 +1180,7 @@ private fun NeriAppContent(
                                     NeriBottomBar(
                                         modifier = Modifier.fillMaxWidth(),
                                         selectAlpha = selectAlpha,
-                                        hazeState = hazeState,
-                                        enableHaze = effectiveAdvancedBlurEnabled,
+                                        backdrop = bottomBarBackdrop,
                                         items = bottomBarItems,
                                         currentDestination = backEntry?.destination,
                                         onItemSelected = { dest ->
@@ -1212,6 +1210,7 @@ private fun NeriAppContent(
                                 startDestination = effectiveStartDestination,
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .layerBackdrop(bottomBarBackdrop)
                                     .then(
                                         if (effectiveAdvancedBlurEnabled) {
                                             Modifier.haze(
@@ -1935,8 +1934,7 @@ private fun NeriAppContent(
                                     modifier = Modifier,
                                     onPlayPause = { PlayerManager.togglePlayPause() },
                                     onExpand = { showNowPlaying = true },
-                                    hazeState = hazeState,
-                                    enableHaze = effectiveAdvancedBlurEnabled
+                                    backdrop = bottomBarBackdrop,
                                 )
                             }
 
