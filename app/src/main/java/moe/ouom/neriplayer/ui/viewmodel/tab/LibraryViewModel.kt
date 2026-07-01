@@ -42,6 +42,7 @@ import moe.ouom.neriplayer.data.local.playlist.model.LocalPlaylist
 import moe.ouom.neriplayer.data.local.playlist.LocalPlaylistRepository
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
 import moe.ouom.neriplayer.util.NPLogger
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
@@ -427,8 +428,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 internal fun parseNeteasePodcasts(raw: String): List<PlaylistSummary> {
     val root = JSONObject(raw)
     if (root.optInt("code", -1) != 200) return emptyList()
+    val data = root.opt("data")
     val arr = root.optJSONArray("djRadios")
-        ?: root.optJSONArray("data")
+        ?: (data as? JSONArray)
+        ?: (data as? JSONObject)?.optJSONArray("djRadios")
+        ?: (data as? JSONObject)?.optJSONArray("list")
         ?: return emptyList()
     val result = mutableListOf<PlaylistSummary>()
     for (i in 0 until arr.length()) {

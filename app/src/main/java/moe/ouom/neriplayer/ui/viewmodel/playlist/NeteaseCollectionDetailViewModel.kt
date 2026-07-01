@@ -160,27 +160,12 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
 
         viewModelScope.launch {
             try {
-                // 再读一次当前持久化 Cookie，并注入
-                val cookies = withContext(Dispatchers.IO) { cookieRepo.getCookiesOnce() }.toMutableMap()
-                cookies.putIfAbsent("os", "pc")
-
-                val raw = withContext(Dispatchers.IO) { client.getPlaylistDetail(playlistId) }
-                NPLogger.d(TAG_PD, "detail head=${raw.take(500)}")
-
-                val parsed = parseDetailFromPlaylist(raw)
-                val tracks = if (
-                    parsed.trackIds.isNotEmpty() &&
-                    parsed.trackIds.size > parsed.tracks.size
-                ) {
-                    fetchFullPlaylistTracks(parsed.trackIds, parsed.tracks)
-                } else {
-                    parsed.tracks
-                }
+                val (header, tracks) = loadPlaylistDetail(playlist)
 
                 _uiState.value = NeteaseCollectionDetailUiState(
                     loading = false,
                     error = null,
-                    header = parsed.header,
+                    header = header,
                     tracks = tracks
                 )
             } catch (e: IOException) {
@@ -219,15 +204,8 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
 
         viewModelScope.launch {
             try {
-                // 再读一次当前持久化 Cookie，并注入
-                val cookies = withContext(Dispatchers.IO) { cookieRepo.getCookiesOnce() }.toMutableMap()
-                cookies.putIfAbsent("os", "pc")
-
-                val raw = withContext(Dispatchers.IO) { client.getAlbumDetail(playlistId) }
-                NPLogger.d(TAG_PD, "detail head=${raw.take(500)}")
-
                 val (header, tracks) = parseDetailFromAlbum(
-                    raw = raw,
+                    raw = loadAlbumRaw(),
                     coverFallback = album.picUrl
                 )
 
@@ -277,8 +255,41 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         }
     }
 
+    suspend fun loadPlaylistSongsForPlayback(playlist: PlaylistSummary): List<SongItem> {
+        return loadPlaylistDetail(playlist).second
+    }
+
+    suspend fun loadAlbumSongsForPlayback(album: AlbumSummary): List<SongItem> {
+        return parseDetailFromAlbum(
+            raw = loadAlbumRaw(album.id),
+            coverFallback = album.picUrl
+        ).tracks
+    }
+
     private fun toHttps(url: String?): String? =
         url?.replaceFirst(Regex("^http://"), "https://")
+
+    private suspend fun loadPlaylistDetail(playlist: PlaylistSummary): Pair<NeteaseCollectionHeader, List<SongItem>> {
+        playlistId = playlist.id
+        val raw = withContext(Dispatchers.IO) { client.getPlaylistDetail(playlist.id) }
+        NPLogger.d(TAG_PD, "detail head=${raw.take(500)}")
+        val parsed = parseDetailFromPlaylist(raw)
+        val tracks = if (
+            parsed.trackIds.isNotEmpty() &&
+            parsed.trackIds.size > parsed.tracks.size
+        ) {
+            fetchFullPlaylistTracks(parsed.trackIds, parsed.tracks)
+        } else {
+            parsed.tracks
+        }
+        return parsed.header to tracks
+    }
+
+    private suspend fun loadAlbumRaw(id: Long = playlistId): String {
+        val raw = withContext(Dispatchers.IO) { client.getAlbumDetail(id) }
+        NPLogger.d(TAG_PD, "detail head=${raw.take(500)}")
+        return raw
+    }
 
     private fun parseDetailFromPlaylist(raw: String): ParsedDetail {
         val root = JSONObject(raw)

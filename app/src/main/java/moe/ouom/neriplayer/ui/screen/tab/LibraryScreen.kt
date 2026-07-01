@@ -254,6 +254,11 @@ fun LibraryScreen(
     LaunchedEffect(neteaseMode) {
         if (orderedTabs.getOrNull(pagerState.currentPage) == LibraryTab.NETEASE) {
             onTabChange(neteaseMode.asLibraryTab())
+            when (neteaseMode) {
+                NeteaseLibraryMode.PLAYLIST -> vm.refreshNeteasePlaylists()
+                NeteaseLibraryMode.ALBUM -> vm.refreshNeteaseAlbums()
+                NeteaseLibraryMode.PODCAST -> vm.refreshNeteasePodcasts()
+            }
         }
     }
 
@@ -262,9 +267,15 @@ fun LibraryScreen(
         vm.refreshYouTubeMusicPlaylists()
     }
 
-    LaunchedEffect(pagerState.currentPage, orderedTabs) {
-        if (orderedTabs.getOrNull(pagerState.currentPage) == LibraryTab.LOCAL) {
-            vm.refreshLocalPlaylists()
+    LaunchedEffect(pagerState.currentPage, orderedTabs, neteaseMode) {
+        when (orderedTabs.getOrNull(pagerState.currentPage)) {
+            LibraryTab.LOCAL -> vm.refreshLocalPlaylists()
+            LibraryTab.NETEASE -> when (neteaseMode) {
+                NeteaseLibraryMode.PLAYLIST -> vm.refreshNeteasePlaylists()
+                NeteaseLibraryMode.ALBUM -> vm.refreshNeteaseAlbums()
+                NeteaseLibraryMode.PODCAST -> vm.refreshNeteasePodcasts()
+            }
+            else -> Unit
         }
     }
 
