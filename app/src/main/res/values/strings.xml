@@ -373,7 +373,7 @@
     <string name="backup_export_failed">歌单导出失败</string>
 
     <!-- Sleep Timer -->
-    <string name="sleep_timer_title">睡眠定时器</string>
+    <string name="sleep_timer_title">定时播放</string>
     <string name="sleep_timer_short">定时器</string>
     <string name="sleep_timer_running">定时器运行中</string>
     <string name="sleep_timer_cancel">取消定时器</string>

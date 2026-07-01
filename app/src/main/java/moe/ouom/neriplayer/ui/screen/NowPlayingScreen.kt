@@ -100,11 +100,9 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -112,7 +110,6 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -226,8 +223,8 @@ import moe.ouom.neriplayer.ui.component.LocalSongSyncConfirmDialog
 import moe.ouom.neriplayer.ui.component.LyricsEditorSeed
 import moe.ouom.neriplayer.ui.component.LyricEntry
 import moe.ouom.neriplayer.ui.component.LyricVisualSpec
-import moe.ouom.neriplayer.ui.component.PlaybackSoundSheet
 import moe.ouom.neriplayer.ui.component.PlaybackSourceType
+import moe.ouom.neriplayer.ui.component.SleepTimerDialog
 import moe.ouom.neriplayer.ui.component.WaveformSlider
 import moe.ouom.neriplayer.ui.component.bottomSheetDragBlocker
 import moe.ouom.neriplayer.ui.component.bottomSheetScrollGuard
@@ -427,6 +424,7 @@ fun NowPlayingScreen(
     var showSongNameMenu by remember { mutableStateOf(false) }
     var showArtistMenu by remember { mutableStateOf(false) }
     var showQualitySwitchDialog by remember { mutableStateOf(false) }
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
     // Snackbar状态
     val snackbarHostState = remember { SnackbarHostState() }
     var detailSong by remember { mutableStateOf<SongItem?>(null) }
@@ -882,13 +880,10 @@ fun NowPlayingScreen(
                             displayedTranslatedLyrics = translatedLyrics,
                             onDismiss = { showTopMoreOptions = false },
                             onShowSongDetails = { detailSong = it },
-                            onEnterAlbum = onEnterAlbum,
-                            onNavigateUp = onNavigateUp,
                             snackbarHostState = snackbarHostState,
-                            lyricFontScale = lyricFontScale,
-                            onLyricFontScaleChange = onLyricFontScaleChange,
                             currentPlaybackAudioInfo = currentPlaybackAudioInfo,
                             onShowQualitySwitch = { showQualitySwitchDialog = true },
+                            onShowSleepTimer = { showSleepTimerDialog = true },
                             showSongInfoAction = false
                         )
                     }
@@ -1089,6 +1084,12 @@ fun NowPlayingScreen(
                     onDismiss = { showAlbumInfoDialog = false }
                 )
             }
+            if (showSleepTimerDialog) {
+                SleepTimerDialog(
+                    onDismiss = { showSleepTimerDialog = false },
+                    embeddedStyle = true
+                )
+            }
         }
     }
 }
@@ -1143,22 +1144,16 @@ fun MoreOptionsSheet(
     displayedTranslatedLyrics: List<LyricEntry>,
     onDismiss: () -> Unit,
     onShowSongDetails: (SongItem) -> Unit = {},
-    onEnterAlbum: (AlbumSummary) -> Unit,
-    onNavigateUp: () -> Unit,
     snackbarHostState: SnackbarHostState,
-    lyricFontScale: Float,
-    onLyricFontScaleChange: (Float) -> Unit,
     currentPlaybackAudioInfo: PlaybackAudioInfo? = null,
     onShowQualitySwitch: () -> Unit = {},
+    onShowSleepTimer: () -> Unit = {},
     showSongInfoAction: Boolean = true
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showSearchView by remember { mutableStateOf(false) }
-    var showOffsetSheet by remember { mutableStateOf(false) }
-    var showFontSizeSheet by remember { mutableStateOf(false) }
     var showEditInfoSheet by remember { mutableStateOf(false) }
     var showListenTogetherSheet by remember { mutableStateOf(false) }
-    var showPlaybackSoundSheet by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
     val searchFocusRequester = remember { FocusRequester() }
@@ -1170,7 +1165,6 @@ fun MoreOptionsSheet(
     val qualityOptions = currentPlaybackAudioInfo?.qualityOptions.orEmpty()
     val canSwitchQuality = qualityOptions.size > 1
     val currentQualityLabel = currentPlaybackAudioInfo?.qualityLabel
-    val playbackSoundState by PlayerManager.playbackSoundStateFlow.collectAsState()
     val downloadPresenceVersion by GlobalDownloadManager.downloadPresenceVersion.collectAsState()
     val downloadTasks by GlobalDownloadManager.downloadTasks.collectAsState()
     val hasLocalDownload = remember(downloadPresenceVersion, originalSong) {
@@ -1214,31 +1208,22 @@ fun MoreOptionsSheet(
     ) {
         // 处理子页面的返回键导航
         BackHandler(
-            enabled = showOffsetSheet ||
-                showFontSizeSheet ||
-                showSearchView ||
+            enabled = showSearchView ||
                 showEditInfoSheet ||
-                showListenTogetherSheet ||
-                showPlaybackSoundSheet
+                showListenTogetherSheet
         ) {
             when {
-                showOffsetSheet -> showOffsetSheet = false
-                showFontSizeSheet -> showFontSizeSheet = false
                 showSearchView -> showSearchView = false
                 showEditInfoSheet -> showEditInfoSheet = false
                 showListenTogetherSheet -> showListenTogetherSheet = false
-                showPlaybackSoundSheet -> showPlaybackSoundSheet = false
             }
         }
 
         // 处理主页面的返回键
         BackHandler(
-            enabled = !showOffsetSheet &&
-                !showFontSizeSheet &&
-                !showSearchView &&
+            enabled = !showSearchView &&
                 !showEditInfoSheet &&
-                !showListenTogetherSheet &&
-                !showPlaybackSoundSheet
+                !showListenTogetherSheet
         ) {
             coroutineScope.launch {
                 sheetState.hide()
@@ -1248,12 +1233,9 @@ fun MoreOptionsSheet(
 
         AnimatedContent(
             targetState = when {
-                showOffsetSheet -> "Offset"
-                showFontSizeSheet -> "FontSize"
                 showSearchView -> "Search"
                 showEditInfoSheet -> "EditInfo"
                 showListenTogetherSheet -> "ListenTogether"
-                showPlaybackSoundSheet -> "PlaybackSound"
                 else -> "Main"
             },
             transitionSpec = {
@@ -1298,12 +1280,15 @@ fun MoreOptionsSheet(
                             )
                         }
                         ListItem(
-                            headlineContent = { Text(stringResource(R.string.nowplaying_audio_effects_title)) },
-                            leadingContent = { Icon(Icons.Outlined.Tune, null) },
-                            supportingContent = {
-                                Text(stringResource(R.string.nowplaying_audio_effects_desc))
-                            },
-                            modifier = Modifier.clickable { showPlaybackSoundSheet = true }
+                            headlineContent = { Text(stringResource(R.string.sleep_timer_title)) },
+                            leadingContent = { Icon(Icons.Outlined.Timer, null) },
+                            modifier = Modifier.clickable {
+                                coroutineScope.launch {
+                                    sheetState.hide()
+                                    onDismiss()
+                                    onShowSleepTimer()
+                                }
+                            }
                         )
                         if (isLocalSong) {
                             ListItem(
@@ -1396,42 +1381,6 @@ fun MoreOptionsSheet(
                             )
                         }
 
-                        ListItem(
-                            headlineContent = { Text(stringResource(R.string.lyrics_adjust_offset)) },
-                            leadingContent = { Icon(Icons.Outlined.Timer, null) },
-                            modifier = Modifier.clickable { showOffsetSheet = true }
-                        )
-                        ListItem(
-                            headlineContent = { Text(stringResource(R.string.lyrics_font_size)) },
-                            leadingContent = { Icon(Icons.Outlined.FormatSize, null) },
-                            supportingContent = {
-                                Text(
-                                    stringResource(
-                                        R.string.common_percent_int,
-                                        (lyricFontScale * 100).roundToInt()
-                                    )
-                                )
-                            },
-                            modifier = Modifier.clickable { showFontSizeSheet = true }
-                        )
-                        if (originalSong.album.startsWith(PlayerManager.NETEASE_SOURCE_TAG)) {
-                            val albumName = originalSong.album.replace(PlayerManager.NETEASE_SOURCE_TAG, "")
-                            val album = AlbumSummary(
-                                id = originalSong.albumId,
-                                name = albumName,
-                                size = 0,
-                                picUrl = originalSong.coverUrl ?: ""
-                            )
-                            ListItem(
-                                headlineContent = { Text(stringResource(R.string.music_view_album, albumName)) },
-                                leadingContent = { Icon(Icons.Outlined.LibraryMusic, null) },
-                                modifier = Modifier.clickable {
-                                    onEnterAlbum(album)
-                                    onDismiss()
-                                    onNavigateUp()
-                                }
-                            )
-                        }
                         ListItem(
                             headlineContent = { Text(stringResource(R.string.action_share)) },
                             leadingContent = { Icon(Icons.Outlined.Share, null) },
@@ -1676,21 +1625,6 @@ fun MoreOptionsSheet(
                     }
                 }
 
-                "Offset" -> {
-                    LyricOffsetSheet(
-                        song = originalSong,
-                        onDismiss = { showOffsetSheet = false }
-                    )
-                }
-
-                "FontSize" -> {
-                    LyricFontSizeSheet(
-                        currentScale = lyricFontScale,
-                        onScaleCommit = onLyricFontScaleChange,
-                        onDismiss = { showFontSizeSheet = false }
-                    )
-                }
-
                 "EditInfo" -> {
                     EditSongInfoSheet(
                         viewModel = viewModel,
@@ -1702,21 +1636,6 @@ fun MoreOptionsSheet(
                     )
                 }
 
-                "PlaybackSound" -> {
-                    PlaybackSoundSheet(
-                        state = playbackSoundState,
-                        onSpeedChange = { value, persist -> viewModel.setPlaybackSpeed(value, persist) },
-                        onPitchChange = { value, persist -> viewModel.setPlaybackPitch(value, persist) },
-                        onLoudnessGainChange = { value, persist -> viewModel.setPlaybackLoudnessGain(value, persist) },
-                        onEqualizerEnabledChange = viewModel::setPlaybackEqualizerEnabled,
-                        onPresetSelected = viewModel::selectPlaybackEqualizerPreset,
-                        onBandLevelChange = { index, value, persist ->
-                            viewModel.updatePlaybackEqualizerBandLevel(index, value, persist)
-                        },
-                        onReset = viewModel::resetPlaybackSoundSettings,
-                        onDismiss = { showPlaybackSoundSheet = false }
-                    )
-                }
             }
 
             // Snackbar

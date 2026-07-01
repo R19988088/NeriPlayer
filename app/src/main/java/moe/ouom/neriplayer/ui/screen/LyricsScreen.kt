@@ -428,6 +428,7 @@ fun LyricsScreen(
             Spacer(modifier = Modifier.width(6.dp))
 
             // 更多按钮
+            var showMoreSleepTimerDialog by remember { mutableStateOf(false) }
             var showMoreOptions by remember { mutableStateOf(false) }
             HapticIconButton(
                 onClick = { showMoreOptions = true },
@@ -460,11 +461,14 @@ fun LyricsScreen(
                     displayedTranslatedLyrics = translatedLyrics.orEmpty(),
                     onDismiss = { showMoreOptions = false },
                     onShowSongDetails = { detailSong = it },
-                    onEnterAlbum = onEnterAlbum,
-                    onNavigateUp = onNavigateBack,
                     snackbarHostState = snackbarHostState,
-                    lyricFontScale = lyricFontScale,
-                    onLyricFontScaleChange = onLyricFontScaleChange
+                    onShowSleepTimer = { showMoreSleepTimerDialog = true }
+                )
+            }
+            if (showMoreSleepTimerDialog) {
+                moe.ouom.neriplayer.ui.component.SleepTimerDialog(
+                    onDismiss = { showMoreSleepTimerDialog = false },
+                    embeddedStyle = true
                 )
             }
         }
