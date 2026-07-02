@@ -1828,7 +1828,8 @@ private fun NeriAppContent(
                                     advancedLyricsEnabled = advancedLyricsEnabled,
                                     showCoverSourceBadge = showCoverSourceBadge,
                                     showLyricTranslation = showLyricTranslation,
-                                    showNowPlayingTitle = showNowPlayingTitle
+                                    showNowPlayingTitle = showNowPlayingTitle,
+                                    bottomBarBackdrop = bottomBarBackdrop
                                 )
                             }
                         }

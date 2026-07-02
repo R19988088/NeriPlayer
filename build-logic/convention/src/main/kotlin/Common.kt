@@ -7,8 +7,9 @@ import java.util.TimeZone
 object Common {
     fun getBuildVersionCode(): Int {
         val appVerCode: Int by lazy {
-            val versionCode = SimpleDateFormat("yyMMddHH", Locale.ENGLISH).format(Date())
-            versionCode.toInt()
+            val hourCode = SimpleDateFormat("yyMMddHH", Locale.ENGLISH).format(Date()).toInt()
+            val tenMinuteSlot = SimpleDateFormat("m", Locale.ENGLISH).format(Date()).toInt() / 10
+            hourCode * 10 + tenMinuteSlot
         }
         return appVerCode
     }
@@ -44,4 +45,3 @@ object Common {
         return "${getShortGitRevision()}.${getCurrentDate(project)}"
     }
 }
-
