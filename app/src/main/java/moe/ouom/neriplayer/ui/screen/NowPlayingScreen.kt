@@ -179,7 +179,8 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import coil.size.Size as CoilSize
-import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -378,7 +379,7 @@ fun NowPlayingScreen(
     showCoverSourceBadge: Boolean = true,
     showLyricTranslation: Boolean = true,
     showNowPlayingTitle: Boolean = true,
-    bottomBarBackdrop: Backdrop? = null,
+    bottomBarBackdrop: LayerBackdrop? = null,
 ) {
     val actualCurrentSong by PlayerManager.currentSongFlow.collectAsState()
     val pendingQueue by PlayerManager.pendingQueueFlow.collectAsState()
@@ -1027,7 +1028,9 @@ fun NowPlayingScreen(
                     ) {
                         LazyColumn(
                             state = listState,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(bottomBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
                             contentPadding = PaddingValues(bottom = NeriMiniPlayerDefaults.Height + 28.dp)
                         ) {
                             itemsIndexed(
