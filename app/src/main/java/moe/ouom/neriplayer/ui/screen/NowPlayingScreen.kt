@@ -819,17 +819,7 @@ fun NowPlayingScreen(
                     ) {
                         HapticIconButton(
                             onClick = {
-                                val song = currentSong
-                                if (song != null &&
-                                    song.albumId != 0L &&
-                                    (song.channelId?.startsWith("netease") == true ||
-                                        song.album.startsWith(PlayerManager.NETEASE_SOURCE_TAG) ||
-                                        song.mediaUri?.contains("music.163.com") == true)
-                                ) {
-                                    onEnterNeteaseCollection(song)
-                                } else {
-                                    showAlbumInfoDialog = true
-                                }
+                                showAlbumInfoDialog = true
                             },
                             modifier = Modifier.size(48.dp)
                         ) {

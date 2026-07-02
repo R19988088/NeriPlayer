@@ -1346,7 +1346,10 @@ internal fun cancelVolumeFade(resetToFull: Boolean = false) =
         commandSource: PlaybackCommandSource = PlaybackCommandSource.LOCAL
     ) = playPlaylistImpl(songs, startIndex, commandSource)
 
-    fun showPendingPlaylist(song: SongItem) = showPendingPlaylistImpl(song)
+    fun showPendingPlaylist(song: SongItem) = showPendingPlaylistImpl(listOf(song), 0)
+
+    fun showPendingPlaylist(songs: List<SongItem>, startIndex: Int = 0) =
+        showPendingPlaylistImpl(songs, startIndex)
 
     fun playBiliVideoParts(videoInfo: BiliClient.VideoBasicInfo, startIndex: Int, coverUrl: String) =
         playBiliVideoPartsImpl(videoInfo, startIndex, coverUrl)

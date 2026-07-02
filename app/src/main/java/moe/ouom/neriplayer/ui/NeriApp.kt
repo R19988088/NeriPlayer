@@ -897,32 +897,6 @@ private fun NeriAppContent(
             colorSpec = themeColorSpec
         ) {
             val navController = rememberNavController()
-            fun openNeteaseCollectionFromSong(song: SongItem) {
-                val json = if (song.channelId == "neteasePodcast") {
-                    Uri.encode(Gson().toJson(PlaylistSummary(
-                        id = song.albumId,
-                        name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
-                        picUrl = song.coverUrl.orEmpty(),
-                        playCount = 0L,
-                        trackCount = 0,
-                        creatorName = song.artist
-                    )))
-                } else {
-                    Uri.encode(Gson().toJson(AlbumSummary(
-                        id = song.albumId,
-                        name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
-                        picUrl = song.coverUrl.orEmpty(),
-                        size = 0
-                    )))
-                }
-                navController.navigate(
-                    if (song.channelId == "neteasePodcast") {
-                        "netease_podcast_detail/$json"
-                    } else {
-                        "netease_album_detail/$json"
-                    }
-                )
-            }
             val backEntry by navController.currentBackStackEntryAsState()
             val currentRoute = backEntry?.destination?.route
             val showHomeTab =
@@ -1099,7 +1073,8 @@ private fun NeriAppContent(
                                         showRecommendedCard = showHomeRecommendedCard,
                                         offlineMode = offlineMode,
                                         onSongClick = ::playSongsAndOpenNowPlaying,
-                                        onDetailSongClick = ::playSongsInline
+                                        onDetailSongClick = ::playSongsInline,
+                                        onOpenNowPlaying = { showNowPlaying = true }
                                     )
                                 }
 
@@ -1244,7 +1219,8 @@ private fun NeriAppContent(
                                         onSongPlayNext = ::addSongToQueueNextFromSearch,
                                         onSongAddToQueueEnd = ::addSongToQueueEndFromSearch,
                                         onDetailSongClick = ::playSongsInline,
-                                        onPlayParts = ::playBiliPartsAndOpenNowPlaying
+                                        onPlayParts = ::playBiliPartsAndOpenNowPlaying,
+                                        onOpenNowPlaying = { showNowPlaying = true }
                                     )
                                 }
 
@@ -1286,6 +1262,7 @@ private fun NeriAppContent(
                                         onDetailSongClick = ::playSongsInline,
                                         onPlayParts = ::playBiliPartsAndOpenNowPlaying,
                                         onDetailPlayParts = ::playBiliPartsInline,
+                                        onOpenNowPlaying = { showNowPlaying = true },
                                         onOpenRecent = { navController.navigate(Destinations.Recent.route) },
                                         onOpenStats = { navController.navigate(Destinations.PlaybackStats.route) }
                                     )
@@ -1834,11 +1811,7 @@ private fun NeriAppContent(
                             CompositionLocalProvider(LocalMiniPlayerHeight provides 0.dp) {
                                 NowPlayingScreen(
                                     onNavigateUp = { showNowPlaying = false },
-                                    onEnterAlbum = { album ->
-                                        val json = Uri.encode(Gson().toJson(album))
-                                        navController.navigate("netease_album_detail/$json")
-                                    },
-                                    onEnterNeteaseCollection = ::openNeteaseCollectionFromSong,
+                                    onEnterAlbum = {},
                                     lyricBlurEnabled = lyricBlurEnabled,
                                     lyricBlurAmount = lyricBlurAmount,
                                     lyricFontScale = lyricFontScale,

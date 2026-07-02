@@ -310,16 +310,17 @@ internal fun PlayerManager.playPlaylistImpl(
     scheduleStatePersist()
 }
 
-internal fun PlayerManager.showPendingPlaylistImpl(song: SongItem) {
+internal fun PlayerManager.showPendingPlaylistImpl(songs: List<SongItem>, startIndex: Int) {
     ensureInitialized()
     if (!initialized) return
+    if (songs.isEmpty()) return
     playJob?.cancel()
     currentYouTubePrefetchJob?.cancel()
     currentYouTubePrefetchJob = null
-    currentPlaylist = listOf(song)
-    currentIndex = 0
+    currentPlaylist = songs
+    currentIndex = startIndex.coerceIn(0, songs.lastIndex)
     _currentQueueFlow.value = currentPlaylist
-    setCurrentSongForPlayback(song, syncLyricon = false)
+    setCurrentSongForPlayback(currentPlaylist[currentIndex], syncLyricon = false)
     _currentMediaUrl.value = null
     _currentPlaybackAudioInfo.value = null
     _isPlayingFlow.value = false

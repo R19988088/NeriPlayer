@@ -331,6 +331,9 @@ fun DetailScreen(
     onBack: () -> Unit = {},
     onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
 ) {
+    // LEGACY_DETAIL_PAGE_DO_NOT_ROUTE_NEW_ENTRYPOINTS_HERE:
+    // This is the old Netease collection detail UI. New album/playlist/podcast entry points
+    // should open the current NowPlaying page with a pending queue instead.
 
     val context = LocalContext.current
 
