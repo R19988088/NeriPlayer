@@ -709,9 +709,6 @@ fun NowPlayingScreen(
                         val coverRequestSizePx = with(LocalDensity.current) {
                             coverSize.roundToPx().coerceAtLeast(256)
                         }
-                        var coverAspectRatio by remember(currentCoverUrl) { mutableFloatStateOf(1f) }
-                        val imageWidth = if (coverAspectRatio >= 1f) coverSize else coverSize * coverAspectRatio
-                        val imageHeight = if (coverAspectRatio >= 1f) coverSize / coverAspectRatio else coverSize
                         Box(
                             modifier = Modifier
                                 .align(Alignment.Center)
@@ -749,18 +746,9 @@ fun NowPlayingScreen(
                                                 allowHardware = false
                                             )
                                         },
-                                        onSuccess = { state ->
-                                            val size = state.painter.intrinsicSize
-                                            if (size.width > 0f && size.height > 0f) {
-                                                coverAspectRatio = size.width / size.height
-                                            }
-                                        },
                                         contentDescription = currentSong?.customName ?: currentSong?.name ?: "",
                                         contentScale = ContentScale.Fit,
-                                        modifier = Modifier
-                                            .align(Alignment.Center)
-                                            .size(imageWidth, imageHeight)
-                                            .clip(RoundedCornerShape(18.dp))
+                                        modifier = Modifier.fillMaxSize()
                                     )
                                 }
                             }
