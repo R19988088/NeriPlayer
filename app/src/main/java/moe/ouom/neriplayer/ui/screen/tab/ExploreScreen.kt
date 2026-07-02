@@ -72,16 +72,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -97,7 +95,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -143,6 +140,21 @@ import moe.ouom.neriplayer.util.formatDuration
 import moe.ouom.neriplayer.util.performHapticFeedback
 
 private const val SEARCH_INPUT_DEBOUNCE_MS = 300L
+
+private enum class ExploreSearchCategory(val labelResId: Int) {
+    SONG(R.string.explore_search_category_song),
+    ALBUM(R.string.explore_search_category_album),
+    PODCAST(R.string.explore_search_category_podcast),
+    ARTIST(R.string.explore_search_category_artist)
+}
+
+private fun SearchSource.labelResId(): Int {
+    return when (this) {
+        SearchSource.NETEASE -> R.string.library_source_netease
+        SearchSource.BILIBILI -> R.string.library_tab_bilibili
+        SearchSource.YOUTUBE_MUSIC -> R.string.library_tab_youtube_music
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -224,6 +236,8 @@ fun ExploreScreen(
         initialPage = initialSearchPage,
         pageCount = { orderedSearchSources.size }
     )
+    var sourceMenuExpanded by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf(ExploreSearchCategory.SONG) }
     val miniPlayerHeight = LocalMiniPlayerHeight.current
     val tagChipSelectedAlpha = if (backgroundImageUri == null) 1f else 0.86f
     val tagChipUnselectedAlpha = if (backgroundImageUri == null) 1f else 0.74f
@@ -289,8 +303,8 @@ fun ExploreScreen(
         }
     }
 
-    LaunchedEffect(searchQuery, ui.selectedSearchSource) {
-        if (searchQuery.isBlank()) {
+    LaunchedEffect(searchQuery, ui.selectedSearchSource, selectedCategory) {
+        if (searchQuery.isBlank() || selectedCategory != ExploreSearchCategory.SONG) {
             vm.search("")
             return@LaunchedEffect
         }
@@ -298,17 +312,41 @@ fun ExploreScreen(
         vm.search(searchQuery)
     }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize(),
         containerColor = Color.Transparent,
         topBar = {
-            LargeTopAppBar(
-                title = { Text(stringResource(R.string.nav_explore)) },
-                scrollBehavior = scrollBehavior,
+            TopAppBar(
+                title = {
+                    Box {
+                        TextButton(onClick = { sourceMenuExpanded = true }) {
+                            Text(
+                                stringResource(
+                                    orderedSearchSources
+                                        .getOrNull(pagerState.currentPage)
+                                        ?.labelResId()
+                                        ?: R.string.library_source_netease
+                                )
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = sourceMenuExpanded,
+                            onDismissRequest = { sourceMenuExpanded = false }
+                        ) {
+                            orderedSearchSources.forEachIndexed { index, source ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(source.labelResId())) },
+                                    onClick = {
+                                        sourceMenuExpanded = false
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
@@ -345,20 +383,21 @@ fun ExploreScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(8.dp))
-                    PrimaryTabRow(
-                        selectedTabIndex = pagerState.currentPage,
-                        containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.primary
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        orderedSearchSources.forEachIndexed { index, source ->
-                            Tab(
-                                selected = pagerState.currentPage == index,
+                        ExploreSearchCategory.values().forEach { category ->
+                            ExploreTagChip(
+                                label = stringResource(category.labelResId),
+                                selected = selectedCategory == category,
                                 onClick = {
-                                    scope.launch {
-                                        pagerState.animateScrollToPage(index)
-                                    }
+                                    selectedCategory = category
+                                    if (category != ExploreSearchCategory.SONG) vm.search("")
                                 },
-                                text = { Text(source.displayName) }
+                                selectedAlpha = tagChipSelectedAlpha,
+                                unselectedAlpha = tagChipUnselectedAlpha,
+                                borderAlpha = tagChipBorderAlpha
                             )
                         }
                     }
@@ -372,6 +411,14 @@ fun ExploreScreen(
                 val currentSource = orderedSearchSources[page]
                 if (searchQuery.isNotEmpty()) {
                     when {
+                        selectedCategory != ExploreSearchCategory.SONG -> {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(bottom = miniPlayerHeight),
+                                Alignment.Center
+                            ) { Text(stringResource(R.string.explore_search_category_empty)) }
+                        }
                         ui.searching -> {
                             Box(
                                 Modifier
@@ -726,17 +773,13 @@ fun ExploreScreen(
 @Composable
 private fun ExploreOfflineContent() {
     val miniPlayerHeight = LocalMiniPlayerHeight.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize(),
         containerColor = Color.Transparent,
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { Text(stringResource(R.string.nav_explore)) },
-                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent

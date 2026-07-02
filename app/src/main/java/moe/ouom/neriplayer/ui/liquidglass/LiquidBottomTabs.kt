@@ -253,7 +253,7 @@ fun LiquidBottomTabs(
                     shape = { RoundedCornerShape(percent = 50) },
                     effects = {
                         vibrancy()
-                        blur(2f.dp.toPx())
+                        blur(LiquidGlassBlurRadius.toPx())
                         lens((12f * lensScale).dp.toPx(), (24f * lensScale).dp.toPx())
                     },
                     layerBlock = {
@@ -264,6 +264,7 @@ fun LiquidBottomTabs(
                     },
                     onDrawSurface = {
                         drawRect(surfaceColor)
+                        drawRect(LiquidGlassOverlayColor)
                         drawLiquidGlassStroke()
                     }
                 )
@@ -296,7 +297,7 @@ fun LiquidBottomTabs(
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
                             vibrancy()
-                            blur(2f.dp.toPx())
+                            blur(LiquidGlassBlurRadius.toPx())
                             lens(
                                 (12f * lensScale).dp.toPx() * progress.coerceAtLeast(0.01f),
                                 (24f * lensScale).dp.toPx() * progress.coerceAtLeast(0.01f),
@@ -308,6 +309,7 @@ fun LiquidBottomTabs(
                         },
                         onDrawSurface = {
                             drawRect(surfaceColor)
+                            drawRect(LiquidGlassOverlayColor)
                             drawLiquidGlassStroke()
                         }
                     )
@@ -371,6 +373,7 @@ fun LiquidBottomTabs(
                             alpha = 1f - progress
                         )
                         drawRect(Color.Black.copy(alpha = 0.03f * progress))
+                        drawRect(LiquidGlassOverlayColor)
                         drawLiquidGlassStroke()
                     }
                 )

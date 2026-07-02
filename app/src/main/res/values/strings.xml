@@ -168,6 +168,11 @@
     <string name="search_no_match">未找到匹配的歌曲</string>
     <string name="search_try_other">尝试使用其他关键词搜索</string>
     <string name="search_error">处理搜索结果时出错</string>
+    <string name="explore_search_category_song">歌曲</string>
+    <string name="explore_search_category_album">专辑</string>
+    <string name="explore_search_category_podcast">播客</string>
+    <string name="explore_search_category_artist">歌手</string>
+    <string name="explore_search_category_empty">当前来源暂未接入此分类搜索</string>
 
     <!-- Settings -->
     <string name="settings_title">设置</string>

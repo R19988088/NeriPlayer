@@ -56,6 +56,8 @@ internal val LocalHazeState = staticCompositionLocalOf<HazeState?> { null }
 internal val LocalLiquidMenuBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 internal val LiquidGlassStrokeColor = Color.Black.copy(alpha = 0.3f)
+internal val LiquidGlassOverlayColor = Color.White.copy(alpha = 0.3f)
+internal val LiquidGlassBlurRadius = 2.6.dp
 
 internal fun DrawScope.drawLiquidGlassStroke() {
     drawRect(
@@ -108,7 +110,7 @@ fun LiquidButton(
                 shape = { RoundedCornerShape(percent = 50) },
                 effects = {
                     vibrancy()
-                    blur(2f.dp.toPx())
+                    blur(LiquidGlassBlurRadius.toPx())
                     lens((12f * lensScale).dp.toPx(), (24f * lensScale).dp.toPx())
                 },
                 layerBlock = if (isInteractive) {
@@ -144,6 +146,7 @@ fun LiquidButton(
                     if (surfaceColor.isSpecified) {
                         drawRect(surfaceColor)
                     }
+                    drawRect(LiquidGlassOverlayColor)
                     drawLiquidGlassStroke()
                 },
             )
@@ -188,11 +191,12 @@ fun SurfaceLiquidCapsule(
                     shape = { shape },
                     effects = {
                         vibrancy()
-                        blur(2f.dp.toPx())
+                        blur(LiquidGlassBlurRadius.toPx())
                         lens(12f.dp.toPx(), 24f.dp.toPx())
                     },
                     onDrawSurface = {
                         drawRect(surfaceColor)
+                        drawRect(LiquidGlassOverlayColor)
                         drawLiquidGlassStroke()
                     },
                 ),
