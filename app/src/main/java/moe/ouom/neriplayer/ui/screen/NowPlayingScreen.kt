@@ -179,7 +179,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import coil.size.Size as CoilSize
-import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -379,7 +379,7 @@ fun NowPlayingScreen(
     showCoverSourceBadge: Boolean = true,
     showLyricTranslation: Boolean = true,
     showNowPlayingTitle: Boolean = true,
-    bottomBarBackdrop: LayerBackdrop? = null,
+    bottomBarBackdrop: Backdrop? = null,
 ) {
     val actualCurrentSong by PlayerManager.currentSongFlow.collectAsState()
     val pendingQueue by PlayerManager.pendingQueueFlow.collectAsState()
