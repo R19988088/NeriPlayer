@@ -39,24 +39,37 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.compose.ui.graphics.Color
+import android.app.Application
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import moe.ouom.neriplayer.core.api.bili.BiliClient
 import moe.ouom.neriplayer.core.di.AppContainer
+import moe.ouom.neriplayer.core.player.PlayerManager
 import moe.ouom.neriplayer.data.platform.youtube.stableYouTubeMusicId
+import moe.ouom.neriplayer.ui.screen.playlist.NeteaseAlbumDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteasePlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.YouTubeMusicPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.tab.ExploreScreen
+import moe.ouom.neriplayer.ui.viewmodel.playlist.NeteaseCollectionDetailViewModel
 import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
+import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.YouTubeMusicPlaylist
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
+import moe.ouom.neriplayer.util.NPLogger
 
 // 探索页选中项
 private sealed class ExploreSelectedItem {
     data class Netease(val playlist: PlaylistSummary) : ExploreSelectedItem()
+    data class NeteaseAlbum(val album: AlbumSummary) : ExploreSelectedItem()
     data class YouTubeMusic(val playlist: YouTubeMusicPlaylist) : ExploreSelectedItem()
 }
 
@@ -71,6 +84,15 @@ fun ExploreHostScreen(
     onPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = { _, _, _ -> }
 ) {
     var selected by remember { mutableStateOf<ExploreSelectedItem?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val neteaseDetailViewModel: NeteaseCollectionDetailViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                NeteaseCollectionDetailViewModel(context.applicationContext as Application)
+            }
+        }
+    )
     LaunchedEffect(offlineMode) {
         if (offlineMode) {
             selected = null
@@ -115,6 +137,49 @@ fun ExploreHostScreen(
                         )
                         selected = ExploreSelectedItem.Netease(pl)
                     },
+                    onNeteaseAlbumClick = { album ->
+                        AppContainer.playlistUsageRepo.recordOpen(
+                            id = album.id,
+                            name = album.name,
+                            picUrl = album.picUrl,
+                            trackCount = album.size,
+                            source = "neteaseAlbum"
+                        )
+                        selected = ExploreSelectedItem.NeteaseAlbum(album)
+                    },
+                    onNeteasePodcastClick = { podcast ->
+                        AppContainer.playlistUsageRepo.recordOpen(
+                            id = podcast.id,
+                            name = podcast.name,
+                            picUrl = podcast.picUrl,
+                            trackCount = podcast.trackCount,
+                            source = "neteasePodcast"
+                        )
+                        PlayerManager.showPendingPlaylist(
+                            SongItem(
+                                id = -podcast.id,
+                                name = podcast.name,
+                                artist = podcast.creatorName,
+                                album = "Netease${podcast.name}",
+                                albumId = podcast.id,
+                                durationMs = 0L,
+                                coverUrl = podcast.picUrl.takeIf { it.isNotBlank() },
+                                originalCoverUrl = podcast.picUrl.takeIf { it.isNotBlank() },
+                                channelId = "netease",
+                                playlistContextId = podcast.id.toString()
+                            )
+                        )
+                        scope.launch {
+                            try {
+                                val tracks = neteaseDetailViewModel.loadPodcastProgramsForPlayback(podcast)
+                                if (tracks.isNotEmpty()) {
+                                    onSongClick(tracks, 0)
+                                }
+                            } catch (error: Exception) {
+                                NPLogger.e("ExploreHostScreen", "load netease podcast failed", error)
+                            }
+                        }
+                    },
                     onYouTubeMusicPlaylistClick = { pl ->
                         AppContainer.playlistUsageRepo.recordOpen(
                             id = stableYouTubeMusicId(pl.playlistId.ifBlank { pl.browseId }),
@@ -138,6 +203,13 @@ fun ExploreHostScreen(
                     is ExploreSelectedItem.Netease -> {
                         NeteasePlaylistDetailScreen(
                             playlist = current.playlist,
+                            onBack = { selected = null },
+                            onSongClick = onDetailSongClick
+                        )
+                    }
+                    is ExploreSelectedItem.NeteaseAlbum -> {
+                        NeteaseAlbumDetailScreen(
+                            album = current.album,
                             onBack = { selected = null },
                             onSongClick = onDetailSongClick
                         )

@@ -102,7 +102,12 @@ data class SearchCategoryResult(
     val id: Long,
     val title: String,
     val subtitle: String,
-    val coverUrl: String?
+    val coverUrl: String?,
+    val trackCount: Int = 0,
+    val playCount: Long = 0L,
+    val creatorName: String = "",
+    val description: String = "",
+    val publishTime: Long = 0L
 )
 
 data class ExploreUiState(
@@ -430,7 +435,8 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                             .joinToString(" · "),
                         coverUrl = obj.optString("picUrl").ifBlank { obj.optString("blurPicUrl") }
                             .replace("http://", "https://")
-                            .ifBlank { null }
+                            .ifBlank { null },
+                        trackCount = size
                     )
                 )
             }
@@ -478,6 +484,9 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                 if (id == 0L || name.isBlank()) continue
                 val programCount = obj.optInt("programCount", obj.optInt("trackCount", 0))
                 val playCount = obj.optLong("playCount", obj.optLong("subCount", 0L))
+                val creatorName = obj.optJSONObject("dj")?.optString("nickname", "")
+                    ?: obj.optJSONObject("creator")?.optString("nickname", "")
+                    ?: ""
                 add(
                     SearchCategoryResult(
                         id = id,
@@ -489,7 +498,12 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                         ),
                         coverUrl = obj.optString("picUrl").ifBlank { obj.optString("coverUrl") }
                             .replace("http://", "https://")
-                            .ifBlank { null }
+                            .ifBlank { null },
+                        trackCount = programCount,
+                        playCount = playCount,
+                        creatorName = creatorName,
+                        description = obj.optString("desc", obj.optString("description", "")),
+                        publishTime = obj.optLong("createTime", obj.optLong("publishTime", 0L))
                     )
                 )
             }

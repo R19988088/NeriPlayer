@@ -127,6 +127,7 @@ import moe.ouom.neriplayer.data.playlist.favorite.FavoritePlaylistRepository
 import moe.ouom.neriplayer.ui.LocalMiniPlayerHeight
 import moe.ouom.neriplayer.ui.component.bottomSheetScrollGuard
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
+import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.ExploreSearchCategory
 import moe.ouom.neriplayer.ui.viewmodel.tab.ExploreUiState
 import moe.ouom.neriplayer.ui.viewmodel.tab.ExploreViewModel
@@ -189,6 +190,8 @@ fun ExploreScreen(
     onSongPlayPreservingQueue: (SongItem) -> Unit = {},
     onSongPlayNext: (SongItem) -> Unit = {},
     onSongAddToQueueEnd: (SongItem) -> Unit = {},
+    onNeteaseAlbumClick: (AlbumSummary) -> Unit = {},
+    onNeteasePodcastClick: (PlaylistSummary) -> Unit = {},
     onPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -466,7 +469,43 @@ fun ExploreScreen(
                                         items = ui.categoryResults,
                                         key = { _, item -> item.id }
                                     ) { _, item ->
-                                        SearchCategoryResultRow(item)
+                                        SearchCategoryResultRow(
+                                            item = item,
+                                            onClick = {
+                                                context.performHapticFeedback()
+                                                when (selectedCategory) {
+                                                    ExploreSearchCategory.ALBUM -> {
+                                                        onNeteaseAlbumClick(
+                                                            AlbumSummary(
+                                                                id = item.id,
+                                                                name = item.title,
+                                                                picUrl = item.coverUrl.orEmpty(),
+                                                                size = item.trackCount
+                                                            )
+                                                        )
+                                                    }
+                                                    ExploreSearchCategory.PODCAST -> {
+                                                        onNeteasePodcastClick(
+                                                            PlaylistSummary(
+                                                                id = item.id,
+                                                                name = item.title,
+                                                                picUrl = item.coverUrl.orEmpty(),
+                                                                playCount = item.playCount,
+                                                                trackCount = item.trackCount,
+                                                                creatorName = item.creatorName,
+                                                                description = item.description,
+                                                                publishTime = item.publishTime
+                                                            )
+                                                        )
+                                                    }
+                                                    ExploreSearchCategory.ARTIST -> {
+                                                        searchQuery = item.title
+                                                        selectedCategory = ExploreSearchCategory.SONG
+                                                    }
+                                                    else -> Unit
+                                                }
+                                            }
+                                        )
                                     }
                                 }
                             } else {
@@ -989,10 +1028,14 @@ private fun ExploreTagChip(
 }
 
 @Composable
-private fun SearchCategoryResultRow(item: SearchCategoryResult) {
+private fun SearchCategoryResultRow(
+    item: SearchCategoryResult,
+    onClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
