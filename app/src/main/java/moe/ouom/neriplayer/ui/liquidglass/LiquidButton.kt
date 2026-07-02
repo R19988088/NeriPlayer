@@ -59,6 +59,10 @@ internal val LiquidGlassStrokeColor = Color.Black.copy(alpha = 0.3f)
 internal val LiquidGlassOverlayColor = Color.White.copy(alpha = 0.3f)
 internal val LiquidGlassBlurRadius = 2.6.dp
 
+internal fun DrawScope.drawLiquidGlassOverlay() {
+    drawRect(LiquidGlassOverlayColor)
+}
+
 internal fun DrawScope.drawLiquidGlassStroke() {
     drawRect(
         color = LiquidGlassStrokeColor,
@@ -138,6 +142,10 @@ fun LiquidButton(
                 } else {
                     null
                 },
+                onDrawBackdrop = { drawBackdrop ->
+                    drawBackdrop()
+                    drawLiquidGlassOverlay()
+                },
                 onDrawSurface = {
                     if (tint.isSpecified) {
                         drawRect(tint, blendMode = BlendMode.Hue)
@@ -146,7 +154,6 @@ fun LiquidButton(
                     if (surfaceColor.isSpecified) {
                         drawRect(surfaceColor)
                     }
-                    drawRect(LiquidGlassOverlayColor)
                     drawLiquidGlassStroke()
                 },
             )
@@ -194,9 +201,12 @@ fun SurfaceLiquidCapsule(
                         blur(LiquidGlassBlurRadius.toPx())
                         lens(12f.dp.toPx(), 24f.dp.toPx())
                     },
+                    onDrawBackdrop = { drawBackdrop ->
+                        drawBackdrop()
+                        drawLiquidGlassOverlay()
+                    },
                     onDrawSurface = {
                         drawRect(surfaceColor)
-                        drawRect(LiquidGlassOverlayColor)
                         drawLiquidGlassStroke()
                     },
                 ),

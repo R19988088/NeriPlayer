@@ -248,9 +248,17 @@ internal object YouTubeMusicSearchParams {
      * 当前 songs -> "II" 为固定协议片段，但属于未公开内部参数，未来可能变化
      */
     fun songs(ignoreSpelling: Boolean = false): String {
+        return filtered("II", ignoreSpelling)
+    }
+
+    fun videos(ignoreSpelling: Boolean = false): String {
+        return filtered("IQ", ignoreSpelling)
+    }
+
+    private fun filtered(kind: String, ignoreSpelling: Boolean): String {
         return buildString {
             append(FILTERED_PREFIX)
-            append("II")
+            append(kind)
             append(
                 if (ignoreSpelling) {
                     FILTER_SUFFIX_IGNORE_SPELLING
@@ -757,11 +765,12 @@ internal object YouTubeMusicParser {
 
     fun parseSongSearchResults(
         root: JSONObject,
-        limit: Int = YOUTUBE_MUSIC_SEARCH_ITEM_LIMIT
+        limit: Int = YOUTUBE_MUSIC_SEARCH_ITEM_LIMIT,
+        type: YouTubeMusicSearchResultType = YouTubeMusicSearchResultType.Song
     ): List<YouTubeMusicSearchResult> {
         val items = parseSearchRendererItems(
             contents = findSearchSongContents(root),
-            forcedType = YouTubeMusicSearchResultType.Song
+            forcedType = type
         )
         return items
             .distinctBy { it.videoId }
@@ -1788,7 +1797,8 @@ class YouTubeMusicClient(
 
     suspend fun search(
         query: String,
-        limit: Int = YOUTUBE_MUSIC_SEARCH_ITEM_LIMIT
+        limit: Int = YOUTUBE_MUSIC_SEARCH_ITEM_LIMIT,
+        type: YouTubeMusicSearchResultType = YouTubeMusicSearchResultType.Song
     ): List<YouTubeMusicSearchResult> = withContext(Dispatchers.IO) {
         if (query.isBlank()) {
             return@withContext emptyList()
@@ -1805,7 +1815,13 @@ class YouTubeMusicClient(
         while (page < YOUTUBE_MUSIC_CONTINUATION_PAGE_LIMIT && items.size < requestedLimit) {
             val payload = JSONObject()
                 .put("query", query)
-                .put("params", YouTubeMusicSearchParams.songs())
+                .put(
+                    "params",
+                    when (type) {
+                        YouTubeMusicSearchResultType.Song -> YouTubeMusicSearchParams.songs()
+                        YouTubeMusicSearchResultType.Video -> YouTubeMusicSearchParams.videos()
+                    }
+                )
             if (!continuation.isNullOrBlank()) {
                 payload.put("continuation", continuation)
             }
@@ -1827,7 +1843,8 @@ class YouTubeMusicClient(
             }
             YouTubeMusicParser.parseSongSearchResults(
                 root = root,
-                limit = requestedLimit - items.size
+                limit = requestedLimit - items.size,
+                type = type
             ).forEach { result ->
                 if (seenVideoIds.add(result.videoId)) {
                     items += result

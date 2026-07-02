@@ -68,7 +68,7 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import moe.ouom.neriplayer.R
 import moe.ouom.neriplayer.ui.liquidglass.LiquidGlassBlurRadius
-import moe.ouom.neriplayer.ui.liquidglass.LiquidGlassOverlayColor
+import moe.ouom.neriplayer.ui.liquidglass.drawLiquidGlassOverlay
 import moe.ouom.neriplayer.ui.liquidglass.drawLiquidGlassStroke
 import moe.ouom.neriplayer.ui.liquidglass.liquidSurfaceColor
 import moe.ouom.neriplayer.util.HapticIconButton
@@ -105,9 +105,12 @@ fun NeriMiniPlayer(
                     blur(LiquidGlassBlurRadius.toPx())
                     lens((12f * 1.5f).dp.toPx(), (24f * 1.5f).dp.toPx())
                 },
+                onDrawBackdrop = { drawBackdrop ->
+                    drawBackdrop()
+                    drawLiquidGlassOverlay()
+                },
                 onDrawSurface = {
                     drawRect(liquidSurfaceColor(isLightTheme))
-                    drawRect(LiquidGlassOverlayColor)
                     drawLiquidGlassStroke()
                 },
             )

@@ -169,10 +169,13 @@
     <string name="search_try_other">Try other keywords</string>
     <string name="search_error">Error processing results</string>
     <string name="explore_search_category_song">Songs</string>
+    <string name="explore_search_category_video">Videos</string>
     <string name="explore_search_category_album">Albums</string>
     <string name="explore_search_category_podcast">Podcasts</string>
     <string name="explore_search_category_artist">Artists</string>
     <string name="explore_search_category_empty">This source does not support this search category yet</string>
+    <string name="explore_artist_result_count">%1$d albums · %2$d songs</string>
+    <string name="explore_podcast_result_count">%1$d programs · %2$d plays</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

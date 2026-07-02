@@ -127,9 +127,11 @@ import moe.ouom.neriplayer.data.playlist.favorite.FavoritePlaylistRepository
 import moe.ouom.neriplayer.ui.LocalMiniPlayerHeight
 import moe.ouom.neriplayer.ui.component.bottomSheetScrollGuard
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
+import moe.ouom.neriplayer.ui.viewmodel.tab.ExploreSearchCategory
 import moe.ouom.neriplayer.ui.viewmodel.tab.ExploreUiState
 import moe.ouom.neriplayer.ui.viewmodel.tab.ExploreViewModel
 import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
+import moe.ouom.neriplayer.ui.viewmodel.tab.SearchCategoryResult
 import moe.ouom.neriplayer.ui.viewmodel.tab.SearchSource
 import moe.ouom.neriplayer.ui.viewmodel.tab.YouTubeMusicPlaylist
 import moe.ouom.neriplayer.util.HapticIconButton
@@ -141,18 +143,37 @@ import moe.ouom.neriplayer.util.performHapticFeedback
 
 private const val SEARCH_INPUT_DEBOUNCE_MS = 300L
 
-private enum class ExploreSearchCategory(val labelResId: Int) {
-    SONG(R.string.explore_search_category_song),
-    ALBUM(R.string.explore_search_category_album),
-    PODCAST(R.string.explore_search_category_podcast),
-    ARTIST(R.string.explore_search_category_artist)
-}
-
 private fun SearchSource.labelResId(): Int {
     return when (this) {
         SearchSource.NETEASE -> R.string.library_source_netease
         SearchSource.BILIBILI -> R.string.library_tab_bilibili
         SearchSource.YOUTUBE_MUSIC -> R.string.library_tab_youtube_music
+    }
+}
+
+private fun ExploreSearchCategory.labelResId(): Int {
+    return when (this) {
+        ExploreSearchCategory.SONG -> R.string.explore_search_category_song
+        ExploreSearchCategory.VIDEO -> R.string.explore_search_category_video
+        ExploreSearchCategory.ALBUM -> R.string.explore_search_category_album
+        ExploreSearchCategory.PODCAST -> R.string.explore_search_category_podcast
+        ExploreSearchCategory.ARTIST -> R.string.explore_search_category_artist
+    }
+}
+
+private fun SearchSource.categories(): List<ExploreSearchCategory> {
+    return when (this) {
+        SearchSource.NETEASE -> listOf(
+            ExploreSearchCategory.SONG,
+            ExploreSearchCategory.ALBUM,
+            ExploreSearchCategory.PODCAST,
+            ExploreSearchCategory.ARTIST
+        )
+        SearchSource.YOUTUBE_MUSIC -> listOf(
+            ExploreSearchCategory.SONG,
+            ExploreSearchCategory.VIDEO
+        )
+        SearchSource.BILIBILI -> listOf(ExploreSearchCategory.VIDEO)
     }
 }
 
@@ -238,6 +259,8 @@ fun ExploreScreen(
     )
     var sourceMenuExpanded by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf(ExploreSearchCategory.SONG) }
+    val selectedSource = orderedSearchSources.getOrNull(pagerState.currentPage) ?: SearchSource.NETEASE
+    val availableCategories = remember(selectedSource) { selectedSource.categories() }
     val miniPlayerHeight = LocalMiniPlayerHeight.current
     val tagChipSelectedAlpha = if (backgroundImageUri == null) 1f else 0.86f
     val tagChipUnselectedAlpha = if (backgroundImageUri == null) 1f else 0.74f
@@ -264,6 +287,9 @@ fun ExploreScreen(
     LaunchedEffect(pagerState.currentPage, orderedSearchSources, ui.selectedSearchSource) {
         val currentSource = orderedSearchSources.getOrNull(pagerState.currentPage)
             ?: return@LaunchedEffect
+        if (selectedCategory !in currentSource.categories()) {
+            selectedCategory = currentSource.categories().first()
+        }
         if (ui.selectedSearchSource != currentSource) {
             vm.setSearchSource(currentSource)
         }
@@ -304,12 +330,12 @@ fun ExploreScreen(
     }
 
     LaunchedEffect(searchQuery, ui.selectedSearchSource, selectedCategory) {
-        if (searchQuery.isBlank() || selectedCategory != ExploreSearchCategory.SONG) {
+        if (searchQuery.isBlank()) {
             vm.search("")
             return@LaunchedEffect
         }
         delay(SEARCH_INPUT_DEBOUNCE_MS)
-        vm.search(searchQuery)
+        vm.search(searchQuery, selectedCategory)
     }
 
     Scaffold(
@@ -387,13 +413,12 @@ fun ExploreScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        ExploreSearchCategory.values().forEach { category ->
+                        availableCategories.forEach { category ->
                             ExploreTagChip(
-                                label = stringResource(category.labelResId),
+                                label = stringResource(category.labelResId()),
                                 selected = selectedCategory == category,
                                 onClick = {
                                     selectedCategory = category
-                                    if (category != ExploreSearchCategory.SONG) vm.search("")
                                 },
                                 selectedAlpha = tagChipSelectedAlpha,
                                 unselectedAlpha = tagChipUnselectedAlpha,
@@ -411,14 +436,6 @@ fun ExploreScreen(
                 val currentSource = orderedSearchSources[page]
                 if (searchQuery.isNotEmpty()) {
                     when {
-                        selectedCategory != ExploreSearchCategory.SONG -> {
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(bottom = miniPlayerHeight),
-                                Alignment.Center
-                            ) { Text(stringResource(R.string.explore_search_category_empty)) }
-                        }
                         ui.searching -> {
                             Box(
                                 Modifier
@@ -438,12 +455,28 @@ fun ExploreScreen(
                             }
                         }
                         ui.searchResults.isEmpty() -> {
+                            if (ui.categoryResults.isNotEmpty()) {
+                                LazyColumn(
+                                    contentPadding = PaddingValues(
+                                        top = 8.dp,
+                                        bottom = 16.dp + miniPlayerHeight
+                                    )
+                                ) {
+                                    itemsIndexed(
+                                        items = ui.categoryResults,
+                                        key = { _, item -> item.id }
+                                    ) { _, item ->
+                                        SearchCategoryResultRow(item)
+                                    }
+                                }
+                            } else {
                             Box(
                                 Modifier
                                     .fillMaxSize()
                                     .padding(bottom = miniPlayerHeight),
                                 Alignment.Center
                             ) { Text(stringResource(R.string.search_no_result)) }
+                            }
                         }
                         else -> {
                             LazyColumn(
@@ -951,6 +984,47 @@ private fun ExploreTagChip(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+@Composable
+private fun SearchCategoryResultRow(item: SearchCategoryResult) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!item.coverUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = fastScrollableImageRequest(LocalContext.current, item.coverUrl, sizePx = 128),
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            )
+        } else {
+            Box(Modifier.size(48.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium
+            )
+            if (item.subtitle.isNotBlank()) {
+                Text(
+                    text = item.subtitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

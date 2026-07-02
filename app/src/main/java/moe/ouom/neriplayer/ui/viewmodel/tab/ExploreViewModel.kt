@@ -90,6 +90,21 @@ enum class SearchSource(val displayName: String) {
     BILIBILI("Bilibili")
 }
 
+enum class ExploreSearchCategory {
+    SONG,
+    VIDEO,
+    ALBUM,
+    PODCAST,
+    ARTIST
+}
+
+data class SearchCategoryResult(
+    val id: Long,
+    val title: String,
+    val subtitle: String,
+    val coverUrl: String?
+)
+
 data class ExploreUiState(
     val expanded: Boolean = false,
     val loading: Boolean = false,
@@ -99,6 +114,7 @@ data class ExploreUiState(
     val searching: Boolean = false,
     val searchError: String? = null,
     val searchResults: List<SongItem> = emptyList(),
+    val categoryResults: List<SearchCategoryResult> = emptyList(),
     val selectedSearchSource: SearchSource = SearchSource.NETEASE,
     val ytMusicPlaylists: List<YouTubeMusicPlaylist> = emptyList(),
     val ytMusicPlaylistsLoading: Boolean = false,
@@ -132,18 +148,20 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
             selectedSearchSource = source,
             searching = false,
             searchResults = emptyList(), // 切换源时清空结果
+            categoryResults = emptyList(),
             searchError = null
         )
     }
 
     /** 统一搜索入口 */
-    fun search(keyword: String) {
+    fun search(keyword: String, category: ExploreSearchCategory = ExploreSearchCategory.SONG) {
         if (keyword.isBlank()) {
             searchJob?.cancel()
             invalidateSearchRequest()
             _uiState.value = _uiState.value.copy(
                 searching = false,
                 searchResults = emptyList(),
+                categoryResults = emptyList(),
                 searchError = null
             )
             return
@@ -151,9 +169,30 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
         val source = _uiState.value.selectedSearchSource
         val requestVersion = beginSearchRequest()
         when (source) {
-            SearchSource.NETEASE -> searchNetease(keyword, requestVersion)
-            SearchSource.BILIBILI -> searchBilibili(keyword, requestVersion)
-            SearchSource.YOUTUBE_MUSIC -> searchYouTubeMusic(keyword, requestVersion)
+            SearchSource.NETEASE -> searchNetease(keyword, category, requestVersion)
+            SearchSource.BILIBILI -> {
+                if (category == ExploreSearchCategory.SONG || category == ExploreSearchCategory.VIDEO) {
+                    searchBilibili(keyword, requestVersion)
+                } else {
+                    unsupportedCategory(requestVersion, source)
+                }
+            }
+            SearchSource.YOUTUBE_MUSIC -> when (category) {
+                ExploreSearchCategory.SONG -> searchYouTubeMusic(keyword, requestVersion, YouTubeMusicSearchResultType.Song)
+                ExploreSearchCategory.VIDEO -> searchYouTubeMusic(keyword, requestVersion, YouTubeMusicSearchResultType.Video)
+                else -> unsupportedCategory(requestVersion, source)
+            }
+        }
+    }
+
+    private fun unsupportedCategory(requestVersion: Long, source: SearchSource) {
+        updateSearchStateIfCurrent(requestVersion, source) {
+            it.copy(
+                searching = false,
+                searchError = app.getString(R.string.explore_search_category_empty),
+                searchResults = emptyList(),
+                categoryResults = emptyList()
+            )
         }
     }
 
@@ -170,7 +209,8 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(
                         searching = false,
                         searchError = null,
-                        searchResults = songs
+                        searchResults = songs,
+                        categoryResults = emptyList()
                     )
                 }
             } catch (e: CancellationException) {
@@ -183,7 +223,8 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                             R.string.error_bilibili_search,
                             e.message ?: app.getString(R.string.github_sync_failed_message)
                         ),
-                        searchResults = emptyList()
+                        searchResults = emptyList(),
+                        categoryResults = emptyList()
                     )
                 }
             }
@@ -283,7 +324,11 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /** 搜索网易云歌曲 */
-    private fun searchNetease(keyword: String, requestVersion: Long) {
+    private fun searchNetease(
+        keyword: String,
+        category: ExploreSearchCategory,
+        requestVersion: Long
+    ) {
         searchJob = viewModelScope.launch {
             try {
                 val raw = withContext(Dispatchers.IO) {
@@ -291,16 +336,23 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                         keyword = keyword,
                         limit = 30,
                         offset = 0,
-                        type = 1,
+                        type = category.neteaseType(),
                         usePersistedCookies = false
                     )
                 }
-                val songs = parseSongs(raw)
+                val songs = if (category == ExploreSearchCategory.SONG) parseSongs(raw) else emptyList()
+                val categoryResults = when (category) {
+                    ExploreSearchCategory.ALBUM -> parseNeteaseAlbumResults(raw)
+                    ExploreSearchCategory.PODCAST -> parseNeteasePodcastResults(raw)
+                    ExploreSearchCategory.ARTIST -> parseNeteaseArtistResults(raw)
+                    else -> emptyList()
+                }
                 updateSearchStateIfCurrent(requestVersion, SearchSource.NETEASE) {
                     it.copy(
                         searching = false,
                         searchError = null,
-                        searchResults = songs
+                        searchResults = songs,
+                        categoryResults = categoryResults
                     )
                 }
             } catch (e: CancellationException) {
@@ -313,10 +365,21 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                             R.string.error_netease_search,
                             e.message ?: app.getString(R.string.github_sync_failed_message)
                         ),
-                        searchResults = emptyList()
+                        searchResults = emptyList(),
+                        categoryResults = emptyList()
                     )
                 }
             }
+        }
+    }
+
+    private fun ExploreSearchCategory.neteaseType(): Int {
+        return when (this) {
+            ExploreSearchCategory.SONG -> 1
+            ExploreSearchCategory.ALBUM -> 10
+            ExploreSearchCategory.ARTIST -> 100
+            ExploreSearchCategory.PODCAST -> 1009
+            ExploreSearchCategory.VIDEO -> 1014
         }
     }
 
@@ -346,6 +409,93 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
         return list
     }
 
+    private fun parseNeteaseAlbumResults(raw: String): List<SearchCategoryResult> {
+        val root = JSONObject(raw)
+        if (root.optInt("code") != 200) return emptyList()
+        val albums = root.optJSONObject("result")?.optJSONArray("albums") ?: return emptyList()
+        return buildList {
+            for (i in 0 until albums.length()) {
+                val obj = albums.optJSONObject(i) ?: continue
+                val id = obj.optLong("id")
+                val name = obj.optString("name")
+                if (id == 0L || name.isBlank()) continue
+                val artist = obj.optJSONObject("artist")?.optString("name").orEmpty()
+                val size = obj.optInt("size", obj.optInt("songCount", 0))
+                add(
+                    SearchCategoryResult(
+                        id = id,
+                        title = name,
+                        subtitle = listOf(artist, app.resources.getQuantityString(R.plurals.library_song_count, size, size))
+                            .filter { it.isNotBlank() }
+                            .joinToString(" · "),
+                        coverUrl = obj.optString("picUrl").ifBlank { obj.optString("blurPicUrl") }
+                            .replace("http://", "https://")
+                            .ifBlank { null }
+                    )
+                )
+            }
+        }
+    }
+
+    private fun parseNeteaseArtistResults(raw: String): List<SearchCategoryResult> {
+        val root = JSONObject(raw)
+        if (root.optInt("code") != 200) return emptyList()
+        val artists = root.optJSONObject("result")?.optJSONArray("artists") ?: return emptyList()
+        return buildList {
+            for (i in 0 until artists.length()) {
+                val obj = artists.optJSONObject(i) ?: continue
+                val id = obj.optLong("id")
+                val name = obj.optString("name")
+                if (id == 0L || name.isBlank()) continue
+                val albumSize = obj.optInt("albumSize", 0)
+                val musicSize = obj.optInt("musicSize", 0)
+                add(
+                    SearchCategoryResult(
+                        id = id,
+                        title = name,
+                        subtitle = app.getString(R.string.explore_artist_result_count, albumSize, musicSize),
+                        coverUrl = obj.optString("picUrl").ifBlank { obj.optString("img1v1Url") }
+                            .replace("http://", "https://")
+                            .ifBlank { null }
+                    )
+                )
+            }
+        }
+    }
+
+    private fun parseNeteasePodcastResults(raw: String): List<SearchCategoryResult> {
+        val root = JSONObject(raw)
+        if (root.optInt("code") != 200) return emptyList()
+        val result = root.optJSONObject("result")
+        val podcasts = result?.optJSONArray("djRadios")
+            ?: result?.optJSONArray("podcasts")
+            ?: return emptyList()
+        return buildList {
+            for (i in 0 until podcasts.length()) {
+                val obj = podcasts.optJSONObject(i) ?: continue
+                val id = obj.optLong("id", obj.optLong("radioId", 0L))
+                val name = obj.optString("name", obj.optString("title", ""))
+                if (id == 0L || name.isBlank()) continue
+                val programCount = obj.optInt("programCount", obj.optInt("trackCount", 0))
+                val playCount = obj.optLong("playCount", obj.optLong("subCount", 0L))
+                add(
+                    SearchCategoryResult(
+                        id = id,
+                        title = name,
+                        subtitle = app.getString(
+                            R.string.explore_podcast_result_count,
+                            programCount,
+                            playCount
+                        ),
+                        coverUrl = obj.optString("picUrl").ifBlank { obj.optString("coverUrl") }
+                            .replace("http://", "https://")
+                            .ifBlank { null }
+                    )
+                )
+            }
+        }
+    }
+
     suspend fun getVideoInfoByAvid(avid: Long): BiliClient.VideoBasicInfo {
         return withContext(Dispatchers.IO) {
             biliClient.getVideoBasicInfoByAvid(avid)
@@ -364,13 +514,18 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /** 搜索 YouTube Music：只返回歌曲结果 */
-    private fun searchYouTubeMusic(keyword: String, requestVersion: Long) {
+    private fun searchYouTubeMusic(
+        keyword: String,
+        requestVersion: Long,
+        type: YouTubeMusicSearchResultType
+    ) {
         searchJob = viewModelScope.launch {
             try {
                 val songs = withContext(Dispatchers.IO) {
                     AppContainer.youtubeMusicClient.search(
                         query = keyword,
-                        limit = 30
+                        limit = 30,
+                        type = type
                     ).map { it.toSongItem(app) }
                 }
                 if (!isSearchRequestCurrent(requestVersion, SearchSource.YOUTUBE_MUSIC)) return@launch
@@ -383,7 +538,8 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                     it.copy(
                         searching = false,
                         searchError = null,
-                        searchResults = songs
+                        searchResults = songs,
+                        categoryResults = emptyList()
                     )
                 }
             } catch (e: CancellationException) {
@@ -396,7 +552,8 @@ class ExploreViewModel(application: Application) : AndroidViewModel(application)
                             R.string.error_youtube_search,
                             e.message ?: app.getString(R.string.github_sync_failed_message)
                         ),
-                        searchResults = emptyList()
+                        searchResults = emptyList(),
+                        categoryResults = emptyList()
                     )
                 }
             }

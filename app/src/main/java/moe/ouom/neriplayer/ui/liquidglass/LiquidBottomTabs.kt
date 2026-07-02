@@ -262,9 +262,12 @@ fun LiquidBottomTabs(
                         scaleX = scale
                         scaleY = scale
                     },
+                    onDrawBackdrop = { drawBackdrop ->
+                        drawBackdrop()
+                        drawLiquidGlassOverlay()
+                    },
                     onDrawSurface = {
                         drawRect(surfaceColor)
-                        drawRect(LiquidGlassOverlayColor)
                         drawLiquidGlassStroke()
                     }
                 )
@@ -307,9 +310,12 @@ fun LiquidBottomTabs(
                             val progress = dampedDragAnimation.pressProgress
                             Highlight.Default.copy(alpha = progress)
                         },
+                        onDrawBackdrop = { drawBackdrop ->
+                            drawBackdrop()
+                            drawLiquidGlassOverlay()
+                        },
                         onDrawSurface = {
                             drawRect(surfaceColor)
-                            drawRect(LiquidGlassOverlayColor)
                             drawLiquidGlassStroke()
                         }
                     )
