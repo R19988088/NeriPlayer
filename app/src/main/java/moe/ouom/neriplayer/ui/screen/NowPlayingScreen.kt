@@ -74,7 +74,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -371,15 +370,6 @@ fun NowPlayingScreen(
     val durationMs = currentSong?.durationMs ?: 0L
     val currentPlaybackAudioInfo by PlayerManager.currentPlaybackAudioInfoFlow.collectAsState()
     val settingsRepo = remember { AppContainer.settingsRepo }
-    val showProgressQualitySwitch by settingsRepo
-        .nowPlayingProgressShowQualitySwitchFlow
-        .collectAsState(initial = true)
-    val showProgressAudioCodec by settingsRepo
-        .nowPlayingProgressShowAudioCodecFlow
-        .collectAsState(initial = true)
-    val showProgressAudioSpec by settingsRepo
-        .nowPlayingProgressShowAudioSpecFlow
-        .collectAsState(initial = true)
     val cloudMusicLyricDefaultOffsetMs by settingsRepo
         .cloudMusicLyricDefaultOffsetMsFlow
         .collectAsState(initial = DEFAULT_CLOUD_MUSIC_LYRIC_OFFSET_MS)
@@ -625,19 +615,6 @@ fun NowPlayingScreen(
     )
     val userOffset = currentSong?.userLyricOffsetMs ?: 0L
     val totalOffset = platformOffset + userOffset
-    val progressInfoSegments = remember(
-        currentPlaybackAudioInfo,
-        showProgressQualitySwitch,
-        showProgressAudioCodec,
-        showProgressAudioSpec
-    ) {
-        buildNowPlayingProgressInfoSegments(
-            audioInfo = currentPlaybackAudioInfo,
-            showQualitySwitch = showProgressQualitySwitch,
-            showAudioCodec = showProgressAudioCodec,
-            showAudioSpec = showProgressAudioSpec
-        )
-    }
 
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         SharedTransitionLayout {
@@ -810,7 +787,7 @@ fun NowPlayingScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(15.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -873,6 +850,8 @@ fun NowPlayingScreen(
                         }
                     }
 
+                    Spacer(Modifier.height(5.dp))
+
                     if (showTopMoreOptions && currentSong != null) {
                         MoreOptionsSheet(
                             viewModel = nowPlayingViewModel,
@@ -908,7 +887,13 @@ fun NowPlayingScreen(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
                                         .combinedClickable(
-                                            onClick = {},
+                                            onClick = {
+                                                if (currentIndexInDisplay >= 0) {
+                                                    screenScope.launch {
+                                                        listState.animateScrollToItem(currentIndexInDisplay)
+                                                    }
+                                                }
+                                            },
                                             onLongClick = { showSongNameMenu = true }
                                         )
                                 )
@@ -971,8 +956,6 @@ fun NowPlayingScreen(
                         songKey = currentSong?.stableKey(),
                         durationMs = durationMs,
                         isPlaying = isPlaying,
-                        progressInfoSegments = progressInfoSegments,
-                        useWideLandscapeLayout = useWideLandscapeLayout,
                         onPreviewPositionChange = { previewPositionOverrideMs = it },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1166,6 +1149,14 @@ fun MoreOptionsSheet(
     val qualityOptions = currentPlaybackAudioInfo?.qualityOptions.orEmpty()
     val canSwitchQuality = qualityOptions.size > 1
     val currentQualityLabel = currentPlaybackAudioInfo?.qualityLabel
+    val sheetInfoSegments = remember(currentPlaybackAudioInfo) {
+        buildNowPlayingProgressInfoSegments(
+            audioInfo = currentPlaybackAudioInfo,
+            showQualitySwitch = true,
+            showAudioCodec = true,
+            showAudioSpec = true
+        )
+    }
     val downloadPresenceVersion by GlobalDownloadManager.downloadPresenceVersion.collectAsState()
     val downloadTasks by GlobalDownloadManager.downloadTasks.collectAsState()
     val hasLocalDownload = remember(downloadPresenceVersion, originalSong) {
@@ -1205,7 +1196,7 @@ fun MoreOptionsSheet(
             }
         },
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = Color.White
     ) {
         // 处理子页面的返回键导航
         BackHandler(
@@ -1253,8 +1244,34 @@ fun MoreOptionsSheet(
                         Modifier
                             .bottomSheetScrollGuard { mainScrollState.value == 0 }
                             .verticalScroll(mainScrollState)
+                            .padding(horizontal = 24.dp)
                             .padding(bottom = 32.dp)
                     ) {
+                        Text(
+                            text = originalSong.displayName(),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color(0xFF2F3136),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = originalSong.displayArtist(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF6A6D73),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        if (sheetInfoSegments.isNotEmpty()) {
+                            NowPlayingProgressInfoRow(
+                                segments = sheetInfoSegments,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp, bottom = 14.dp)
+                            )
+                        } else {
+                            Spacer(Modifier.height(14.dp))
+                        }
                         if (showSongInfoAction) {
                             ListItem(
                                 headlineContent = { Text(stringResource(R.string.music_get_info)) },
@@ -2684,8 +2701,6 @@ private fun NowPlayingProgressSection(
     songKey: String?,
     durationMs: Long,
     isPlaying: Boolean,
-    progressInfoSegments: List<NowPlayingProgressInfoSegment>,
-    useWideLandscapeLayout: Boolean,
     onPreviewPositionChange: (Long?) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2779,15 +2794,6 @@ private fun NowPlayingProgressSection(
             )
         }
 
-        if (progressInfoSegments.isNotEmpty()) {
-            Spacer(Modifier.height(0.dp))
-            NowPlayingProgressInfoRow(
-                segments = progressInfoSegments,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = if (useWideLandscapeLayout) (-5).dp else (-6).dp)
-            )
-        }
     }
 }
 

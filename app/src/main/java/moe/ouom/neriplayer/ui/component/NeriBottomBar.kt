@@ -24,6 +24,7 @@ package moe.ouom.neriplayer.ui.component
  */
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -57,6 +58,31 @@ private val LiquidContentShadow = Shadow(
     offset = Offset.Zero,
     blurRadius = 1f
 )
+
+@Composable
+private fun LiquidShadowedIcon(
+    imageVector: ImageVector,
+    contentDescription: String?,
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier
+                .matchParentSize()
+                .offset(x = 0.5.dp, y = 0.5.dp),
+        )
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.matchParentSize(),
+        )
+    }
+}
 
 @Composable
 fun NeriBottomBar(
@@ -107,17 +133,11 @@ fun NeriBottomBar(
                         .graphicsLayer { alpha = tabAlpha },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
+                    LiquidShadowedIcon(
                         imageVector = icon,
                         contentDescription = label,
                         tint = color,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .graphicsLayer {
-                                shadowElevation = 1f
-                                ambientShadowColor = Color.White
-                                spotShadowColor = Color.White
-                            },
+                        modifier = Modifier.size(24.dp),
                     )
                 }
                 Text(

@@ -31,6 +31,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -86,6 +87,31 @@ private val LiquidContentShadow = Shadow(
     offset = Offset.Zero,
     blurRadius = 1f
 )
+
+@Composable
+private fun LiquidShadowedIcon(
+    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String?,
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Icon(
+            imageVector = imageVector,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier
+                .matchParentSize()
+                .offset(x = 0.5.dp, y = 0.5.dp),
+        )
+        Icon(
+            imageVector = imageVector,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.matchParentSize(),
+        )
+    }
+}
 
 @Composable
 fun NeriMiniPlayer(
@@ -201,17 +227,11 @@ fun NeriMiniPlayer(
                         ))
                     }
                 ) { currentlyPlaying ->
-                    Icon(
+                    LiquidShadowedIcon(
                         imageVector = if (currentlyPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                         contentDescription = if (currentlyPlaying) stringResource(R.string.lyrics_pause) else stringResource(R.string.lyrics_play),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier
-                            .size(22.dp)
-                            .graphicsLayer {
-                                shadowElevation = 1f
-                                ambientShadowColor = Color.White
-                                spotShadowColor = Color.White
-                            }
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }

@@ -75,7 +75,7 @@ fun LiquidBottomTabs(
     val accentColor =
         if (isLightTheme) TabAccentLight
         else TabAccentDark
-    val surfaceColor = Color.Transparent
+    val surfaceColor = liquidSurfaceColor(isLightTheme)
 
     val tabsBackdrop = rememberLayerBackdrop()
 
@@ -379,7 +379,6 @@ fun LiquidBottomTabs(
                             alpha = 1f - progress
                         )
                         drawRect(Color.Black.copy(alpha = 0.03f * progress))
-                        drawRect(LiquidGlassOverlayColor)
                         drawLiquidGlassStroke()
                     }
                 )

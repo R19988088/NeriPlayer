@@ -55,7 +55,7 @@ import kotlin.math.tanh
 internal val LocalHazeState = staticCompositionLocalOf<HazeState?> { null }
 internal val LocalLiquidMenuBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
-internal val LiquidGlassStrokeColor = Color.Black.copy(alpha = 0.3f)
+internal val LiquidGlassStrokeColor = Color.Black.copy(alpha = 0.1f)
 internal val LiquidGlassOverlayColor = Color.White.copy(alpha = 0.3f)
 internal val LiquidGlassBlurRadius = 2.6.dp
 
