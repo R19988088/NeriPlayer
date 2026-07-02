@@ -364,11 +364,18 @@ fun NowPlayingScreen(
     showLyricTranslation: Boolean = true,
     showNowPlayingTitle: Boolean = true,
 ) {
-    val currentSong by PlayerManager.currentSongFlow.collectAsState()
-    val isPlaying by PlayerManager.isPlayingFlow.collectAsState()
-    val isPlaybackControlPlaying by PlayerManager.playbackControlPlayingFlow.collectAsState()
+    val actualCurrentSong by PlayerManager.currentSongFlow.collectAsState()
+    val pendingQueue by PlayerManager.pendingQueueFlow.collectAsState()
+    val pendingQueueStartIndex by PlayerManager.pendingQueueStartIndexFlow.collectAsState()
+    val isPendingPlaylist = pendingQueue.isNotEmpty()
+    val currentSong = pendingQueue.getOrNull(pendingQueueStartIndex) ?: actualCurrentSong
+    val rawIsPlaying by PlayerManager.isPlayingFlow.collectAsState()
+    val rawPlaybackControlPlaying by PlayerManager.playbackControlPlayingFlow.collectAsState()
+    val isPlaying = if (isPendingPlaylist) false else rawIsPlaying
+    val isPlaybackControlPlaying = if (isPendingPlaylist) false else rawPlaybackControlPlaying
     val durationMs = currentSong?.durationMs ?: 0L
-    val currentPlaybackAudioInfo by PlayerManager.currentPlaybackAudioInfoFlow.collectAsState()
+    val actualCurrentPlaybackAudioInfo by PlayerManager.currentPlaybackAudioInfoFlow.collectAsState()
+    val currentPlaybackAudioInfo = if (isPendingPlaylist) null else actualCurrentPlaybackAudioInfo
     val settingsRepo = remember { AppContainer.settingsRepo }
     val cloudMusicLyricDefaultOffsetMs by settingsRepo
         .cloudMusicLyricDefaultOffsetMsFlow
@@ -402,10 +409,14 @@ fun NowPlayingScreen(
     val isFavorite = favOverride ?: isFavoriteComputed
 
     val queue by PlayerManager.currentQueueFlow.collectAsState()
-    val displayedQueue = remember(queue) { queue }
-    val currentIndexInDisplay = remember(displayedQueue, currentSong) {
-        displayedQueue.indexOfFirst {
-            it.sameIdentityAs(currentSong)
+    val displayedQueue = if (isPendingPlaylist) pendingQueue else queue
+    val currentIndexInDisplay = remember(displayedQueue, currentSong, isPendingPlaylist, pendingQueueStartIndex) {
+        if (isPendingPlaylist) {
+            pendingQueueStartIndex.coerceIn(displayedQueue.indices)
+        } else {
+            displayedQueue.indexOfFirst {
+                it.sameIdentityAs(currentSong)
+            }
         }
     }
 
@@ -808,7 +819,13 @@ fun NowPlayingScreen(
                         }
 
                         HapticFilledIconButton(
-                            onClick = { PlayerManager.togglePlayPause() },
+                            onClick = {
+                                if (isPendingPlaylist) {
+                                    PlayerManager.playPendingPlaylist()
+                                } else {
+                                    PlayerManager.togglePlayPause()
+                                }
+                            },
                             modifier = Modifier.size(58.dp)
                         ) {
                             AnimatedContent(
@@ -979,7 +996,13 @@ fun NowPlayingScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .clickable { PlayerManager.playFromQueue(index) }
+                                    .clickable {
+                                        if (isPendingPlaylist) {
+                                            PlayerManager.playPendingPlaylist(index)
+                                        } else {
+                                            PlayerManager.playFromQueue(index)
+                                        }
+                                    }
                                     .padding(horizontal = 12.dp, vertical = 11.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {

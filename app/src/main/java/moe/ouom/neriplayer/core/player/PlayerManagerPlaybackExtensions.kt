@@ -4,7 +4,12 @@ package moe.ouom.neriplayer.core.player
 
 import android.os.SystemClock
 import android.widget.Toast
+import androidx.core.net.toUri
+import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.cache.CacheDataSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -39,6 +44,9 @@ import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
 import moe.ouom.neriplayer.util.NPLogger
 import moe.ouom.neriplayer.util.SearchManager
 import kotlin.random.Random
+
+private const val PENDING_PLAYLIST_PREFETCH_BYTES = 512L * 1024L
+private const val PENDING_PLAYLIST_PREFETCH_BUFFER_BYTES = 64 * 1024
 
 internal fun PlayerManager.cancelVolumeFadeImpl(resetToFull: Boolean = false) {
     val hadActiveFade = volumeFadeJob?.isActive == true
@@ -286,6 +294,7 @@ internal fun PlayerManager.playPlaylistImpl(
         "NERI-PlayerManager",
         "playPlaylist: size=${songs.size}, requestedStart=$startIndex, resolvedStart=${startIndex.coerceIn(0, songs.lastIndex)}, source=$commandSource, target=${targetSong.name}, stack=[${debugStackHint()}]"
     )
+    clearPendingPlaylist()
     suppressAutoResumeForCurrentSession = false
     consecutivePlayFailures = 0
     currentPlaylist = songs
@@ -314,19 +323,83 @@ internal fun PlayerManager.showPendingPlaylistImpl(songs: List<SongItem>, startI
     ensureInitialized()
     if (!initialized) return
     if (songs.isEmpty()) return
-    playJob?.cancel()
-    currentYouTubePrefetchJob?.cancel()
-    currentYouTubePrefetchJob = null
-    currentPlaylist = songs
-    currentIndex = startIndex.coerceIn(0, songs.lastIndex)
-    _currentQueueFlow.value = currentPlaylist
-    setCurrentSongForPlayback(currentPlaylist[currentIndex], syncLyricon = false)
-    _currentMediaUrl.value = null
-    _currentPlaybackAudioInfo.value = null
-    _isPlayingFlow.value = false
-    _playWhenReadyFlow.value = false
-    _playbackPositionMs.value = 0L
-    runCatching { player.stop() }
+    val resolvedStart = startIndex.coerceIn(0, songs.lastIndex)
+    _pendingQueueFlow.value = songs
+    _pendingQueueStartIndexFlow.value = resolvedStart
+    pendingPlaylistPrefetchJob?.cancel()
+    pendingPlaylistPrefetchJob = ioScope.launch {
+        prefetchPendingPlaylistStart(songs[resolvedStart])
+    }
+}
+
+internal fun PlayerManager.playPendingPlaylistImpl(startIndex: Int?) {
+    val songs = _pendingQueueFlow.value
+    if (songs.isEmpty()) return
+    val resolvedStart = (startIndex ?: _pendingQueueStartIndexFlow.value).coerceIn(0, songs.lastIndex)
+    clearPendingPlaylist()
+    playPlaylist(songs, resolvedStart)
+}
+
+private fun PlayerManager.clearPendingPlaylist() {
+    pendingPlaylistPrefetchJob?.cancel()
+    pendingPlaylistPrefetchJob = null
+    _pendingQueueFlow.value = emptyList()
+    _pendingQueueStartIndexFlow.value = 0
+}
+
+private suspend fun PlayerManager.prefetchPendingPlaylistStart(song: SongItem) {
+    try {
+        val result = resolveSongUrl(song)
+        if (result !is SongUrlResult.Success) return
+        val cacheKey = result.cacheKeyOverride ?: computeCacheKey(song)
+        invalidateMismatchedCachedResource(
+            cacheKey = cacheKey,
+            expectedContentLength = result.expectedContentLength
+        )
+        prefetchPendingUrlIntoCache(result.url, cacheKey)
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        NPLogger.w(
+            "NERI-PlayerManager",
+            "pending playlist prefetch failed: song=${song.name}, error=${error.message}"
+        )
+    }
+}
+
+private suspend fun PlayerManager.prefetchPendingUrlIntoCache(
+    url: String,
+    cacheKey: String
+): Long = withContext(Dispatchers.IO) {
+    if (!isCacheInitialized()) return@withContext 0L
+    val upstreamFactory = conditionalHttpFactory ?: return@withContext 0L
+    val cacheDataSource = CacheDataSource.Factory()
+        .setCache(cache)
+        .setUpstreamDataSourceFactory(upstreamFactory)
+        .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE)
+        .createDataSource()
+    val dataSpec = DataSpec.Builder()
+        .setUri(url.toUri())
+        .setKey(cacheKey)
+        .setPosition(0L)
+        .setLength(PENDING_PLAYLIST_PREFETCH_BYTES)
+        .build()
+    val buffer = ByteArray(PENDING_PLAYLIST_PREFETCH_BUFFER_BYTES)
+    var totalRead = 0L
+    try {
+        cacheDataSource.open(dataSpec)
+        while (totalRead < PENDING_PLAYLIST_PREFETCH_BYTES) {
+            val read = cacheDataSource.read(
+                buffer,
+                0,
+                minOf(buffer.size.toLong(), PENDING_PLAYLIST_PREFETCH_BYTES - totalRead).toInt()
+            )
+            if (read == C.RESULT_END_OF_INPUT || read < 0) break
+            totalRead += read.toLong()
+        }
+    } finally {
+        runCatching { cacheDataSource.close() }
+    }
+    totalRead
 }
 
 internal fun PlayerManager.rebuildShuffleBag(excludeIndex: Int? = null) {

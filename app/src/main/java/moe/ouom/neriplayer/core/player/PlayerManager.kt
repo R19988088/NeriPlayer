@@ -260,6 +260,12 @@ object PlayerManager {
     internal val _currentQueueFlow = MutableStateFlow<List<SongItem>>(emptyList())
     val currentQueueFlow: StateFlow<List<SongItem>> = _currentQueueFlow
 
+    internal val _pendingQueueFlow = MutableStateFlow<List<SongItem>>(emptyList())
+    val pendingQueueFlow: StateFlow<List<SongItem>> = _pendingQueueFlow
+
+    internal val _pendingQueueStartIndexFlow = MutableStateFlow(0)
+    val pendingQueueStartIndexFlow: StateFlow<Int> = _pendingQueueStartIndexFlow
+
     internal val _isPlayingFlow = MutableStateFlow(false)
     val isPlayingFlow: StateFlow<Boolean> = _isPlayingFlow
 
@@ -323,6 +329,7 @@ object PlayerManager {
     internal var playJob: Job? = null
     internal var currentYouTubePrefetchJob: Job? = null
     internal val youtubeStreamWarmupJobs = ConcurrentHashMap<String, Job>()
+    internal var pendingPlaylistPrefetchJob: Job? = null
     @Volatile
     internal var playbackRequestToken = 0L
     @Volatile
@@ -1350,6 +1357,9 @@ internal fun cancelVolumeFade(resetToFull: Boolean = false) =
 
     fun showPendingPlaylist(songs: List<SongItem>, startIndex: Int = 0) =
         showPendingPlaylistImpl(songs, startIndex)
+
+    fun playPendingPlaylist(startIndex: Int? = null) =
+        playPendingPlaylistImpl(startIndex)
 
     fun playBiliVideoParts(videoInfo: BiliClient.VideoBasicInfo, startIndex: Int, coverUrl: String) =
         playBiliVideoPartsImpl(videoInfo, startIndex, coverUrl)
