@@ -1106,7 +1106,8 @@ private fun NeriAppContent(
                                     NeteasePlaylistDetailScreen(
                                         playlist = playlist,
                                         onBack = { navController.popBackStack() },
-                                        onSongClick = ::playSongsInline
+                                        onSongClick = ::playSongsInline,
+                                        miniPlayerBackdrop = bottomBarBackdrop
                                     )
                                 }
 
@@ -1131,7 +1132,8 @@ private fun NeriAppContent(
                                     NeteaseAlbumDetailScreen(
                                         album = album,
                                         onBack = { navController.popBackStack() },
-                                        onSongClick = ::playSongsInline
+                                        onSongClick = ::playSongsInline,
+                                        miniPlayerBackdrop = bottomBarBackdrop
                                     )
                                 }
 
@@ -1156,7 +1158,8 @@ private fun NeriAppContent(
                                     NeteasePodcastDetailScreen(
                                         podcast = podcast,
                                         onBack = { navController.popBackStack() },
-                                        onSongClick = ::playSongsInline
+                                        onSongClick = ::playSongsInline,
+                                        miniPlayerBackdrop = bottomBarBackdrop
                                     )
                                 }
                                 
@@ -1828,7 +1831,8 @@ private fun NeriAppContent(
                                     advancedLyricsEnabled = advancedLyricsEnabled,
                                     showCoverSourceBadge = showCoverSourceBadge,
                                     showLyricTranslation = showLyricTranslation,
-                                    showNowPlayingTitle = showNowPlayingTitle
+                                    showNowPlayingTitle = showNowPlayingTitle,
+                                    bottomBarBackdrop = bottomBarBackdrop
                                 )
                             }
                         }

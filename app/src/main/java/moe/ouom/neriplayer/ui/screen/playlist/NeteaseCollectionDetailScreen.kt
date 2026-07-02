@@ -134,6 +134,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
+import com.kyant.backdrop.Backdrop
 import kotlinx.coroutines.launch
 import moe.ouom.neriplayer.R
 import moe.ouom.neriplayer.core.di.AppContainer
@@ -173,7 +174,8 @@ import moe.ouom.neriplayer.util.performHapticFeedback
 fun NeteasePlaylistDetailScreen(
     playlist: PlaylistSummary,
     onBack: () -> Unit = {},
-    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
+    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    miniPlayerBackdrop: Backdrop? = null
 ) {
     val context = LocalContext.current
     val vm: NeteaseCollectionDetailViewModel = viewModel(
@@ -216,7 +218,8 @@ fun NeteasePlaylistDetailScreen(
         playlistSource = "netease",
         onRetry = vm::retry,
         onBack = onBack,
-        onSongClick = onSongClick
+        onSongClick = onSongClick,
+        miniPlayerBackdrop = miniPlayerBackdrop
     )
 }
 
@@ -225,7 +228,8 @@ fun NeteasePlaylistDetailScreen(
 fun NeteaseAlbumDetailScreen(
     album: AlbumSummary,
     onBack: () -> Unit = {},
-    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
+    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    miniPlayerBackdrop: Backdrop? = null
 ) {
     val context = LocalContext.current
     val vm: NeteaseCollectionDetailViewModel = viewModel(
@@ -268,7 +272,8 @@ fun NeteaseAlbumDetailScreen(
         playlistSource = "neteaseAlbum",
         onRetry = vm::retry,
         onBack = onBack,
-        onSongClick = onSongClick
+        onSongClick = onSongClick,
+        miniPlayerBackdrop = miniPlayerBackdrop
     )
 }
 
@@ -277,7 +282,8 @@ fun NeteaseAlbumDetailScreen(
 fun NeteasePodcastDetailScreen(
     podcast: PlaylistSummary,
     onBack: () -> Unit = {},
-    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
+    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    miniPlayerBackdrop: Backdrop? = null
 ) {
     val context = LocalContext.current
     val vm: NeteaseCollectionDetailViewModel = viewModel(
@@ -317,7 +323,8 @@ fun NeteasePodcastDetailScreen(
         playlistSource = "neteasePodcast",
         onRetry = vm::retry,
         onBack = onBack,
-        onSongClick = onSongClick
+        onSongClick = onSongClick,
+        miniPlayerBackdrop = miniPlayerBackdrop
     )
 }
 
@@ -330,7 +337,8 @@ fun DetailScreen(
     playlistSource: String,
     onRetry: () -> Unit,
     onBack: () -> Unit = {},
-    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
+    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> },
+    miniPlayerBackdrop: Backdrop? = null
 ) {
     // LEGACY_DETAIL_PAGE_DO_NOT_ROUTE_NEW_ENTRYPOINTS_HERE:
     // This is the old Netease collection detail UI. New album/playlist/podcast entry points
@@ -736,7 +744,8 @@ fun DetailScreen(
                 NeriMiniPlayerHost(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .windowInsetsPadding(WindowInsets.navigationBars),
+                    backdrop = miniPlayerBackdrop
                 )
                 SnackbarHost(
                     hostState = snackbarHostState,
