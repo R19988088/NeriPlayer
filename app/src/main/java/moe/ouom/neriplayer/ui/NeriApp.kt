@@ -970,7 +970,14 @@ private fun NeriAppContent(
 
                 val selectAlpha = if (backgroundImageUri == null) 1f else 0f
                 val currentSong by PlayerManager.currentSongFlow.collectAsState()
-                val isMiniPlayerVisible = currentSong != null && !showNowPlaying
+                val isPlaylistDetailRoute = currentRoute in setOf(
+                    Destinations.PlaylistDetail.route,
+                    Destinations.NeteaseAlbumDetail.route,
+                    Destinations.NeteasePodcastDetail.route,
+                    Destinations.BiliPlaylistDetail.route,
+                    Destinations.LocalPlaylistDetail.route
+                )
+                val isMiniPlayerVisible = currentSong != null && !showNowPlaying && !isPlaylistDetailRoute
                 val isPlaybackControlPlaying by PlayerManager.playbackControlPlayingFlow.collectAsState()
                 val bottomBarHeightDp = with(LocalDensity.current) { bottomBarHeightPx.toDp() }
                 val reservedMiniPlayerHeightDp = if (currentSong == null) {

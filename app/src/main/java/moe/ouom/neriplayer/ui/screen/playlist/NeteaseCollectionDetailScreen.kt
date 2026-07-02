@@ -151,6 +151,7 @@ import moe.ouom.neriplayer.data.model.sameIdentityAs
 import moe.ouom.neriplayer.data.playlist.favorite.FavoritePlaylistRepository
 import moe.ouom.neriplayer.ui.LocalMiniPlayerHeight
 import moe.ouom.neriplayer.ui.component.BatchDownloadManagerSheet
+import moe.ouom.neriplayer.ui.component.NeriMiniPlayerHost
 import moe.ouom.neriplayer.ui.component.bottomSheetScrollGuard
 import moe.ouom.neriplayer.ui.viewmodel.playlist.NeteaseCollectionDetailUiState
 import moe.ouom.neriplayer.ui.viewmodel.playlist.NeteaseCollectionDetailViewModel
@@ -732,6 +733,11 @@ fun DetailScreen(
                 BackHandler(enabled = selectionMode) { exitSelection() }
 
                 // Snackbar
+                NeriMiniPlayerHost(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                )
                 SnackbarHost(
                     hostState = snackbarHostState,
                     modifier = Modifier

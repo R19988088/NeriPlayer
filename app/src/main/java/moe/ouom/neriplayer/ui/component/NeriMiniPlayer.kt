@@ -24,6 +24,7 @@ package moe.ouom.neriplayer.ui.component
  */
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -41,6 +42,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
@@ -51,6 +54,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,6 +77,10 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import moe.ouom.neriplayer.R
+import moe.ouom.neriplayer.core.player.PlayerManager
+import moe.ouom.neriplayer.data.model.displayArtist
+import moe.ouom.neriplayer.data.model.displayCoverUrl
+import moe.ouom.neriplayer.data.model.displayName
 import moe.ouom.neriplayer.ui.liquidglass.LiquidGlassBlurRadius
 import moe.ouom.neriplayer.ui.liquidglass.drawLiquidGlassOverlay
 import moe.ouom.neriplayer.ui.liquidglass.drawLiquidGlassStroke
@@ -87,6 +97,35 @@ private val LiquidContentShadow = Shadow(
     offset = Offset.Zero,
     blurRadius = 1f
 )
+
+private data class MiniPlayerContent(
+    val title: String,
+    val artist: String,
+    val coverUrl: String?,
+)
+
+@Composable
+fun NeriMiniPlayerHost(
+    modifier: Modifier = Modifier,
+    onExpand: () -> Unit = {},
+    backdrop: Backdrop? = null,
+) {
+    val context = LocalContext.current
+    val song by PlayerManager.currentSongFlow.collectAsState()
+    val isPlaying by PlayerManager.playbackControlPlayingFlow.collectAsState()
+    val coverUrl = remember(song, context) { song?.displayCoverUrl(context) }
+    AnimatedVisibility(visible = song != null, modifier = modifier) {
+        NeriMiniPlayer(
+            title = song?.displayName() ?: context.getString(R.string.nowplaying_no_playback),
+            artist = song?.displayArtist() ?: "",
+            coverUrl = coverUrl,
+            isPlaying = isPlaying,
+            onPlayPause = { PlayerManager.togglePlayPause() },
+            onExpand = onExpand,
+            backdrop = backdrop,
+        )
+    }
+}
 
 @Composable
 private fun LiquidShadowedIcon(
@@ -122,33 +161,38 @@ fun NeriMiniPlayer(
     modifier: Modifier = Modifier,
     onPlayPause: () -> Unit,
     onExpand: () -> Unit,
-    backdrop: Backdrop,
+    backdrop: Backdrop? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
     val isLightTheme = !isSystemInDarkTheme()
+    val baseModifier = modifier
+        .height(NeriMiniPlayerDefaults.Height)
+        .padding(start = 18.dp, end = 18.dp, bottom = 8.dp)
+        .graphicsLayer { clip = false }
+    val surfaceModifier = if (backdrop != null) {
+        baseModifier.drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                vibrancy()
+                blur(LiquidGlassBlurRadius.toPx())
+                lens((12f * 1.5f).dp.toPx(), (24f * 1.5f).dp.toPx())
+            },
+            onDrawBackdrop = { drawBackdrop ->
+                drawBackdrop()
+                drawLiquidGlassOverlay()
+            },
+            onDrawSurface = {
+                drawRect(liquidSurfaceColor(isLightTheme))
+                drawLiquidGlassStroke()
+            },
+        )
+    } else {
+        baseModifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f), shape)
+    }
 
     Box(
-        modifier = modifier
-            .height(NeriMiniPlayerDefaults.Height)
-            .padding(start = 18.dp, end = 18.dp, bottom = 8.dp)
-            .graphicsLayer { clip = false }
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                effects = {
-                    vibrancy()
-                    blur(LiquidGlassBlurRadius.toPx())
-                    lens((12f * 1.5f).dp.toPx(), (24f * 1.5f).dp.toPx())
-                },
-                onDrawBackdrop = { drawBackdrop ->
-                    drawBackdrop()
-                    drawLiquidGlassOverlay()
-                },
-                onDrawSurface = {
-                    drawRect(liquidSurfaceColor(isLightTheme))
-                    drawLiquidGlassStroke()
-                },
-            )
+        modifier = surfaceModifier
             .clip(shape)
             .clickable { onExpand() }
     ) {
@@ -157,56 +201,75 @@ fun NeriMiniPlayer(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = if (coverUrl != null) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-            ) {
-                if (coverUrl != null) {
-                    val context = LocalContext.current
-                    AsyncImage(
-                        model = fastScrollableImageRequest(
-                            context = context,
-                            data = coverUrl,
-                            sizePx = 128,
-                            crossfade = false
-                        ),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(8.dp))
-                    )
-                } else {
-                    // 显示默认音乐图标
+            AnimatedContent(
+                targetState = MiniPlayerContent(title, artist, coverUrl),
+                modifier = Modifier.weight(1f),
+                label = "mini_player_content",
+                transitionSpec = {
+                    (slideInVertically(
+                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                        initialOffsetY = { it }
+                    ) + fadeIn(tween(160))) togetherWith (slideOutVertically(
+                        animationSpec = tween(180, easing = FastOutSlowInEasing),
+                        targetOffsetY = { -it }
+                    ) + fadeOut(tween(120)))
+                }
+            ) { content ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Box(
-                        modifier = Modifier.matchParentSize(),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                color = if (content.coverUrl != null) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            )
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.MusicNote,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        if (content.coverUrl != null) {
+                            val context = LocalContext.current
+                            AsyncImage(
+                                model = fastScrollableImageRequest(
+                                    context = context,
+                                    data = content.coverUrl,
+                                    sizePx = 128,
+                                    crossfade = false
+                                ),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.matchParentSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.MusicNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        OutlinedLiquidText(
+                            text = content.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        OutlinedLiquidText(
+                            text = content.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                OutlinedLiquidText(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                OutlinedLiquidText(
-                    text = artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             HapticIconButton(onClick = { onPlayPause() }) {

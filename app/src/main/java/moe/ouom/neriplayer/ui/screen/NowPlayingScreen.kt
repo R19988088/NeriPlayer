@@ -174,6 +174,10 @@ import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import coil.size.Size as CoilSize
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -706,12 +710,34 @@ fun NowPlayingScreen(
 
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                         val coverSize = minOf(maxWidth, if (isLandscape) 260.dp else 360.dp)
-                        val coverRequestSizePx = with(LocalDensity.current) {
-                            coverSize.roundToPx().coerceAtLeast(256)
-                        }
                         var coverAspectRatio by remember(currentCoverUrl) { mutableFloatStateOf(1f) }
                         val coverImageWidth = if (coverAspectRatio >= 1f) coverSize else coverSize * coverAspectRatio
                         val coverImageHeight = if (coverAspectRatio >= 1f) coverSize / coverAspectRatio else coverSize
+                        val coverRequestWidthPx = with(LocalDensity.current) {
+                            coverImageWidth.roundToPx().coerceAtLeast(256)
+                        }
+                        val coverRequestHeightPx = with(LocalDensity.current) {
+                            coverImageHeight.roundToPx().coerceAtLeast(256)
+                        }
+                        LaunchedEffect(context, currentCoverUrl) {
+                            coverAspectRatio = 1f
+                            val cover = currentCoverUrl?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+                            val result = withContext(Dispatchers.IO) {
+                                context.imageLoader.execute(
+                                    ImageRequest.Builder(context)
+                                        .data(cover)
+                                        .allowHardware(false)
+                                        .size(CoilSize.ORIGINAL)
+                                        .build()
+                                )
+                            }
+                            val drawable = (result as? SuccessResult)?.drawable
+                            val width = drawable?.intrinsicWidth ?: 0
+                            val height = drawable?.intrinsicHeight ?: 0
+                            if (width > 0 && height > 0) {
+                                coverAspectRatio = width.toFloat() / height.toFloat()
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .align(Alignment.Center)
@@ -741,19 +767,14 @@ fun NowPlayingScreen(
                             ) {
                                 currentCoverUrl?.let { cover ->
                                     AsyncImage(
-                                        model = remember(context, cover, coverRequestSizePx) {
+                                        model = remember(context, cover, coverRequestWidthPx, coverRequestHeightPx) {
                                             offlineCachedImageRequest(
                                                 context = context,
                                                 data = cover,
-                                                sizePx = coverRequestSizePx,
+                                                widthPx = coverRequestWidthPx,
+                                                heightPx = coverRequestHeightPx,
                                                 allowHardware = false
                                             )
-                                        },
-                                        onSuccess = { state ->
-                                            val size = state.painter.intrinsicSize
-                                            if (size.width > 0f && size.height > 0f) {
-                                                coverAspectRatio = size.width / size.height
-                                            }
                                         },
                                         contentDescription = currentSong?.customName ?: currentSong?.name ?: "",
                                         contentScale = ContentScale.Fit,

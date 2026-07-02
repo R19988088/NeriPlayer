@@ -38,12 +38,15 @@ fun offlineCachedImageRequest(
     context: Context,
     data: Any?,
     sizePx: Int? = null,
+    widthPx: Int? = null,
+    heightPx: Int? = null,
     allowHardware: Boolean = true,
     crossfade: Boolean = false
 ): ImageRequest {
     val localSource = isLocalImageSource(data)
-    val resolvedSizePx = sizePx ?: if (localSource) DEFAULT_LOCAL_IMAGE_REQUEST_SIZE_PX else null
-    val resolvedAllowHardware = if (localSource && sizePx == null) false else allowHardware
+    val hasExplicitSize = sizePx != null || widthPx != null && heightPx != null
+    val resolvedSizePx = sizePx ?: if (localSource && !hasExplicitSize) DEFAULT_LOCAL_IMAGE_REQUEST_SIZE_PX else null
+    val resolvedAllowHardware = if (localSource && !hasExplicitSize) false else allowHardware
     val builder = ImageRequest.Builder(context)
         .data(data)
         .allowHardware(resolvedAllowHardware)
@@ -57,6 +60,10 @@ fun offlineCachedImageRequest(
     if (resolvedSizePx != null) {
         builder
             .size(resolvedSizePx)
+            .precision(Precision.INEXACT)
+    } else if (widthPx != null && heightPx != null) {
+        builder
+            .size(widthPx, heightPx)
             .precision(Precision.INEXACT)
     }
     return builder.build()
