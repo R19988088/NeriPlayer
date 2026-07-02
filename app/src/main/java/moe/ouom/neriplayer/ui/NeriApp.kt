@@ -826,33 +826,6 @@ private fun NeriAppContent(
         scheduleAudioServiceStart("play_songs_inline", true)
     }
 
-    fun openNeteaseCollectionFromSong(song: SongItem) {
-        val json = if (song.channelId == "neteasePodcast") {
-            Uri.encode(Gson().toJson(PlaylistSummary(
-                id = song.albumId,
-                name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
-                picUrl = song.coverUrl.orEmpty(),
-                playCount = 0L,
-                trackCount = 0,
-                creatorName = song.artist
-            )))
-        } else {
-            Uri.encode(Gson().toJson(AlbumSummary(
-                id = song.albumId,
-                name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
-                picUrl = song.coverUrl.orEmpty(),
-                size = 0
-            )))
-        }
-        navController.navigate(
-            if (song.channelId == "neteasePodcast") {
-                "netease_podcast_detail/$json"
-            } else {
-                "netease_album_detail/$json"
-            }
-        )
-    }
-
     fun playSongPreservingQueueAndOpenNowPlaying(song: SongItem) {
         showNowPlaying = true
         PlayerManager.replaceCurrentInQueueAndPlay(song)
@@ -924,6 +897,32 @@ private fun NeriAppContent(
             colorSpec = themeColorSpec
         ) {
             val navController = rememberNavController()
+            fun openNeteaseCollectionFromSong(song: SongItem) {
+                val json = if (song.channelId == "neteasePodcast") {
+                    Uri.encode(Gson().toJson(PlaylistSummary(
+                        id = song.albumId,
+                        name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
+                        picUrl = song.coverUrl.orEmpty(),
+                        playCount = 0L,
+                        trackCount = 0,
+                        creatorName = song.artist
+                    )))
+                } else {
+                    Uri.encode(Gson().toJson(AlbumSummary(
+                        id = song.albumId,
+                        name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
+                        picUrl = song.coverUrl.orEmpty(),
+                        size = 0
+                    )))
+                }
+                navController.navigate(
+                    if (song.channelId == "neteasePodcast") {
+                        "netease_podcast_detail/$json"
+                    } else {
+                        "netease_album_detail/$json"
+                    }
+                )
+            }
             val backEntry by navController.currentBackStackEntryAsState()
             val currentRoute = backEntry?.destination?.route
             val showHomeTab =
