@@ -355,6 +355,7 @@ private data class LoadedLyricsState(
 fun NowPlayingScreen(
     onNavigateUp: () -> Unit,
     onEnterAlbum: (AlbumSummary) -> Unit,
+    onEnterNeteaseCollection: (SongItem) -> Unit = {},
     lyricBlurEnabled: Boolean,
     lyricBlurAmount: Float,
     lyricFontScale: Float,
@@ -818,7 +819,17 @@ fun NowPlayingScreen(
                     ) {
                         HapticIconButton(
                             onClick = {
-                                showAlbumInfoDialog = true
+                                val song = currentSong
+                                if (song != null &&
+                                    song.albumId != 0L &&
+                                    (song.channelId?.startsWith("netease") == true ||
+                                        song.album.startsWith(PlayerManager.NETEASE_SOURCE_TAG) ||
+                                        song.mediaUri?.contains("music.163.com") == true)
+                                ) {
+                                    onEnterNeteaseCollection(song)
+                                } else {
+                                    showAlbumInfoDialog = true
+                                }
                             },
                             modifier = Modifier.size(48.dp)
                         ) {

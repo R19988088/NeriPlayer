@@ -90,7 +90,7 @@ internal fun parseNeteasePodcastPrograms(raw: String, podcast: PlaylistSummary):
                 durationMs = duration,
                 coverUrl = cover.takeIf { it.isNotBlank() },
                 originalCoverUrl = cover.takeIf { it.isNotBlank() },
-                channelId = "netease",
+                channelId = "neteasePodcast",
                 audioId = songId.toString(),
                 subAudioId = programId.toString(),
                 playlistContextId = podcast.id.toString()

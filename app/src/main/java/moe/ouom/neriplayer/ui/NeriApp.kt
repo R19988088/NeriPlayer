@@ -184,6 +184,7 @@ import moe.ouom.neriplayer.ui.screen.playlist.BiliPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.LocalPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteaseAlbumDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteasePlaylistDetailScreen
+import moe.ouom.neriplayer.ui.screen.playlist.NeteasePodcastDetailScreen
 import moe.ouom.neriplayer.ui.theme.NeriTheme
 import moe.ouom.neriplayer.ui.viewmodel.debug.LogViewerScreen
 import moe.ouom.neriplayer.ui.viewmodel.playlist.BiliVideoItem
@@ -825,6 +826,33 @@ private fun NeriAppContent(
         scheduleAudioServiceStart("play_songs_inline", true)
     }
 
+    fun openNeteaseCollectionFromSong(song: SongItem) {
+        val json = if (song.channelId == "neteasePodcast") {
+            Uri.encode(Gson().toJson(PlaylistSummary(
+                id = song.albumId,
+                name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
+                picUrl = song.coverUrl.orEmpty(),
+                playCount = 0L,
+                trackCount = 0,
+                creatorName = song.artist
+            )))
+        } else {
+            Uri.encode(Gson().toJson(AlbumSummary(
+                id = song.albumId,
+                name = song.album.removePrefix(PlayerManager.NETEASE_SOURCE_TAG),
+                picUrl = song.coverUrl.orEmpty(),
+                size = 0
+            )))
+        }
+        navController.navigate(
+            if (song.channelId == "neteasePodcast") {
+                "netease_podcast_detail/$json"
+            } else {
+                "netease_album_detail/$json"
+            }
+        )
+    }
+
     fun playSongPreservingQueueAndOpenNowPlaying(song: SongItem) {
         showNowPlaying = true
         PlayerManager.replaceCurrentInQueueAndPlay(song)
@@ -1121,6 +1149,31 @@ private fun NeriAppContent(
                                     val album = Gson().fromJson(playlistJson, AlbumSummary::class.java)
                                     NeteaseAlbumDetailScreen(
                                         album = album,
+                                        onBack = { navController.popBackStack() },
+                                        onSongClick = ::playSongsInline
+                                    )
+                                }
+
+                                composable(
+                                    route = Destinations.NeteasePodcastDetail.route,
+                                    arguments = listOf(navArgument("playlistJson") {
+                                        type = NavType.StringType
+                                    }),
+                                    enterTransition = {
+                                        slideInVertically(animationSpec = tween(220)) { it } + fadeIn()
+                                    },
+                                    exitTransition = { fadeOut(animationSpec = tween(160)) },
+                                    popEnterTransition = {
+                                        slideInVertically(animationSpec = tween(200)) { full -> -full / 6 } + fadeIn()
+                                    },
+                                    popExitTransition = {
+                                        slideOutVertically(animationSpec = tween(240)) { it } + fadeOut()
+                                    }
+                                ) { backStackEntry ->
+                                    val playlistJson = backStackEntry.arguments?.getString("playlistJson")
+                                    val podcast = Gson().fromJson(playlistJson, PlaylistSummary::class.java)
+                                    NeteasePodcastDetailScreen(
+                                        podcast = podcast,
                                         onBack = { navController.popBackStack() },
                                         onSongClick = ::playSongsInline
                                     )
@@ -1786,6 +1839,7 @@ private fun NeriAppContent(
                                         val json = Uri.encode(Gson().toJson(album))
                                         navController.navigate("netease_album_detail/$json")
                                     },
+                                    onEnterNeteaseCollection = ::openNeteaseCollectionFromSong,
                                     lyricBlurEnabled = lyricBlurEnabled,
                                     lyricBlurAmount = lyricBlurAmount,
                                     lyricFontScale = lyricFontScale,
