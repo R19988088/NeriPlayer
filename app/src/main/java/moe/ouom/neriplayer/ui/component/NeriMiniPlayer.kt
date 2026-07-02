@@ -53,9 +53,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -79,6 +80,12 @@ import moe.ouom.neriplayer.util.fastScrollableImageRequest
 object NeriMiniPlayerDefaults {
     val Height = 64.dp
 }
+
+private val LiquidContentShadow = Shadow(
+    color = Color.White,
+    offset = Offset.Zero,
+    blurRadius = 1f
+)
 
 @Composable
 fun NeriMiniPlayer(
@@ -197,13 +204,14 @@ fun NeriMiniPlayer(
                     Icon(
                         imageVector = if (currentlyPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                         contentDescription = if (currentlyPlaying) stringResource(R.string.lyrics_pause) else stringResource(R.string.lyrics_play),
-                        tint = Color.White
-                    )
-                    Icon(
-                        imageVector = if (currentlyPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier
+                            .size(22.dp)
+                            .graphicsLayer {
+                                shadowElevation = 1f
+                                ambientShadowColor = Color.White
+                                spotShadowColor = Color.White
+                            }
                     )
                 }
             }
@@ -217,20 +225,11 @@ private fun OutlinedLiquidText(
     style: TextStyle,
     color: Color,
 ) {
-    Box {
-        Text(
-            text = text,
-            style = style.copy(drawStyle = Stroke(width = 2f)),
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            text = text,
-            style = style,
-            color = color,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    Text(
+        text = text,
+        style = style.copy(shadow = LiquidContentShadow),
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }

@@ -35,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -49,6 +51,12 @@ import moe.ouom.neriplayer.navigation.Destinations
 import moe.ouom.neriplayer.ui.liquidglass.LiquidBottomTab
 import moe.ouom.neriplayer.ui.liquidglass.LiquidBottomTabs
 import moe.ouom.neriplayer.util.performHapticFeedback
+
+private val LiquidContentShadow = Shadow(
+    color = Color.White,
+    offset = Offset.Zero,
+    blurRadius = 1f
+)
 
 @Composable
 fun NeriBottomBar(
@@ -102,35 +110,26 @@ fun NeriBottomBar(
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
                         tint = color,
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier
+                            .size(24.dp)
+                            .graphicsLayer {
+                                shadowElevation = 1f
+                                ambientShadowColor = Color.White
+                                spotShadowColor = Color.White
+                            },
                     )
                 }
-                Box(modifier = Modifier.graphicsLayer { alpha = tabAlpha }) {
-                    Text(
-                        text = label,
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                        style = TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)),
-                    )
-                    Text(
-                        text = label,
-                        fontSize = 12.sp,
-                        color = color,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                Text(
+                    text = label,
+                    fontSize = 12.sp,
+                    color = color,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(shadow = LiquidContentShadow),
+                    modifier = Modifier.graphicsLayer { alpha = tabAlpha },
+                )
             }
         }
     }
