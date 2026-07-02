@@ -29,6 +29,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
@@ -173,14 +175,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import coil.size.Size as CoilSize
-import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.layerBackdrop
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -302,11 +303,85 @@ internal fun resolveNowPlayingPlaybackSourceType(
     }
 }
 
-private fun resolveCoverAspectRatio(drawable: Drawable): Float {
-    val width = drawable.intrinsicWidth
-    val height = drawable.intrinsicHeight
-    if (width <= 0 || height <= 0) return 1f
-    return (width.toFloat() / height.toFloat()).coerceIn(0.25f, 4f)
+private data class CoverDisplayGeometry(
+    val aspectRatio: Float = 1f,
+    val cornerRadiusDp: Int = 18
+)
+
+private fun resolveCoverDisplayGeometry(drawable: Drawable): CoverDisplayGeometry {
+    val bitmap = runCatching { drawable.toBitmap() }.getOrNull() ?: return CoverDisplayGeometry()
+    val bounds = detectCoverContentBounds(bitmap)
+    val originalWidth = drawable.intrinsicWidth.takeIf { it > 0 } ?: bitmap.width
+    val originalHeight = drawable.intrinsicHeight.takeIf { it > 0 } ?: bitmap.height
+    val boundsCoverOriginal = bounds != null &&
+        bounds.width().toFloat() * bounds.height().toFloat() >= bitmap.width.toFloat() * bitmap.height.toFloat() * 0.82f
+    val width = if (boundsCoverOriginal) bounds.width() else originalWidth
+    val height = if (boundsCoverOriginal) bounds.height() else originalHeight
+    val cornerRadius = if (bounds != null && coverContentTouchesDisplayCorners(bitmap, bounds)) 3 else 18
+    return CoverDisplayGeometry(
+        aspectRatio = (width.toFloat() / height.toFloat()).coerceIn(0.25f, 4f),
+        cornerRadiusDp = cornerRadius
+    )
+}
+
+private fun detectCoverContentBounds(bitmap: Bitmap): Rect? {
+    var left = bitmap.width
+    var top = bitmap.height
+    var right = -1
+    var bottom = -1
+    val step = maxOf(1, minOf(bitmap.width, bitmap.height) / 360)
+    var y = 0
+    while (y < bitmap.height) {
+        var x = 0
+        while (x < bitmap.width) {
+            if (bitmap.isCoverContentPixel(x, y)) {
+                left = minOf(left, x)
+                top = minOf(top, y)
+                right = maxOf(right, x)
+                bottom = maxOf(bottom, y)
+            }
+            x += step
+        }
+        y += step
+    }
+    if (right < left || bottom < top) return null
+    return Rect(
+        left,
+        top,
+        minOf(bitmap.width, right + step),
+        minOf(bitmap.height, bottom + step)
+    )
+}
+
+private fun coverContentTouchesDisplayCorners(bitmap: Bitmap, bounds: Rect): Boolean {
+    val sample = maxOf(2, minOf(bounds.width(), bounds.height()) / 18)
+    val step = maxOf(1, sample / 4)
+    val corners = arrayOf(
+        bounds.left to bounds.top,
+        bounds.right - sample to bounds.top,
+        bounds.left to bounds.bottom - sample,
+        bounds.right - sample to bounds.bottom - sample
+    )
+    return corners.any { (startX, startY) ->
+        var hits = 0
+        for (dy in 0 until sample step step) {
+            for (dx in 0 until sample step step) {
+                val x = (startX + dx).coerceIn(0, bitmap.width - 1)
+                val y = (startY + dy).coerceIn(0, bitmap.height - 1)
+                if (bitmap.isCoverContentPixel(x, y)) hits++
+            }
+        }
+        hits >= 3
+    }
+}
+
+private fun Bitmap.isCoverContentPixel(x: Int, y: Int): Boolean {
+    val pixel = getPixel(x, y)
+    val alpha = pixel ushr 24
+    val red = pixel shr 16 and 0xFF
+    val green = pixel shr 8 and 0xFF
+    val blue = pixel and 0xFF
+    return alpha >= 24 && !(red >= 245 && green >= 245 && blue >= 245)
 }
 
 private fun hasCachedLocalDownload(song: SongItem): Boolean {
@@ -379,7 +454,6 @@ fun NowPlayingScreen(
     showCoverSourceBadge: Boolean = true,
     showLyricTranslation: Boolean = true,
     showNowPlayingTitle: Boolean = true,
-    bottomBarBackdrop: Backdrop? = null,
 ) {
     val actualCurrentSong by PlayerManager.currentSongFlow.collectAsState()
     val pendingQueue by PlayerManager.pendingQueueFlow.collectAsState()
@@ -691,7 +765,6 @@ fun NowPlayingScreen(
                 // 播放页面
                 var contentModifier = Modifier
                     .fillMaxSize()
-                    .then(bottomBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
                     .background(nowPlayingBackground)
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .windowInsetsPadding(WindowInsets.navigationBars)
@@ -724,7 +797,8 @@ fun NowPlayingScreen(
 
                     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                         val coverSize = minOf(maxWidth, if (isLandscape) 260.dp else 360.dp)
-                        var coverAspectRatio by remember(currentCoverUrl) { mutableFloatStateOf(1f) }
+                        var coverGeometry by remember(currentCoverUrl) { mutableStateOf(CoverDisplayGeometry()) }
+                        val coverAspectRatio = coverGeometry.aspectRatio
                         val coverImageWidth = if (coverAspectRatio >= 1f) coverSize else coverSize * coverAspectRatio
                         val coverImageHeight = if (coverAspectRatio >= 1f) coverSize / coverAspectRatio else coverSize
                         val coverRequestWidthPx = with(LocalDensity.current) {
@@ -734,7 +808,7 @@ fun NowPlayingScreen(
                             coverImageHeight.roundToPx().coerceAtLeast(256)
                         }
                         LaunchedEffect(context, currentCoverUrl) {
-                            coverAspectRatio = 1f
+                            coverGeometry = CoverDisplayGeometry()
                             val cover = currentCoverUrl?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
                             val result = withContext(Dispatchers.IO) {
                                 context.imageLoader.execute(
@@ -747,7 +821,9 @@ fun NowPlayingScreen(
                             }
                             val drawable = (result as? SuccessResult)?.drawable
                             if (drawable != null) {
-                                coverAspectRatio = resolveCoverAspectRatio(drawable)
+                                coverGeometry = withContext(Dispatchers.Default) {
+                                    resolveCoverDisplayGeometry(drawable)
+                                }
                             }
                         }
                         Box(
@@ -793,7 +869,7 @@ fun NowPlayingScreen(
                                         modifier = Modifier
                                             .align(Alignment.Center)
                                             .size(coverImageWidth, coverImageHeight)
-                                            .clip(RoundedCornerShape(18.dp))
+                                            .clip(RoundedCornerShape(coverGeometry.cornerRadiusDp.dp))
                                     )
                                 }
                             }
@@ -1097,8 +1173,7 @@ fun NowPlayingScreen(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth(),
-                            onExpand = {},
-                            backdrop = bottomBarBackdrop
+                            onExpand = {}
                         )
                     }
                 }
