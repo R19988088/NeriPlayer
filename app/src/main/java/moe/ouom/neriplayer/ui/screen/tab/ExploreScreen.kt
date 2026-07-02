@@ -90,6 +90,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -192,6 +193,7 @@ fun ExploreScreen(
     onSongAddToQueueEnd: (SongItem) -> Unit = {},
     onNeteaseAlbumClick: (AlbumSummary) -> Unit = {},
     onNeteasePodcastClick: (PlaylistSummary) -> Unit = {},
+    onNeteaseCategoryFavorite: (ExploreSearchCategory, SearchCategoryResult) -> Unit = { _, _ -> },
     onPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -206,7 +208,7 @@ fun ExploreScreen(
         }
     )
     val ui by vm.uiState.collectAsState()
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     val backgroundImageUri by AppContainer.settingsRepo.backgroundImageUriFlow.collectAsState(initial = null)
@@ -261,7 +263,7 @@ fun ExploreScreen(
         pageCount = { orderedSearchSources.size }
     )
     var sourceMenuExpanded by remember { mutableStateOf(false) }
-    var selectedCategory by remember { mutableStateOf(ExploreSearchCategory.SONG) }
+    var selectedCategory by rememberSaveable { mutableStateOf(ExploreSearchCategory.SONG) }
     val selectedSource = orderedSearchSources.getOrNull(pagerState.currentPage) ?: SearchSource.NETEASE
     val availableCategories = remember(selectedSource) { selectedSource.categories() }
     val miniPlayerHeight = LocalMiniPlayerHeight.current
@@ -504,6 +506,10 @@ fun ExploreScreen(
                                                     }
                                                     else -> Unit
                                                 }
+                                            },
+                                            onLongClick = {
+                                                context.performHapticFeedback()
+                                                onNeteaseCategoryFavorite(selectedCategory, item)
                                             }
                                         )
                                     }
@@ -1028,14 +1034,19 @@ private fun ExploreTagChip(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun SearchCategoryResultRow(
     item: SearchCategoryResult,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

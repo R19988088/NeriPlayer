@@ -280,7 +280,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 val uid = withContext(Dispatchers.IO) { neteaseClient.getCurrentUserId() }
-                val raw = withContext(Dispatchers.IO) { neteaseClient.getUserPlaylists(uid) }
+                val raw = withContext(Dispatchers.IO) { neteaseClient.getUserSubscribedPlaylists(uid) }
                 val mapped = parseNeteasePlaylists(raw)
                 _uiState.value = _uiState.value.copy(
                     neteasePlaylists = mapped,
@@ -334,6 +334,42 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 )
             } catch (e: IOException) {
                 _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            }
+        }
+    }
+
+    fun unfavoriteNeteasePlaylist(playlistId: Long) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { neteaseClient.subscribePlaylist(playlistId, false) }
+                refreshNeteasePlaylists()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            }
+        }
+    }
+
+    fun unfavoriteNeteaseAlbum(albumId: Long) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { neteaseClient.subscribeAlbum(albumId, false) }
+                neteaseAlbumsLoaded = false
+                cachedNeteaseAlbums = null
+                refreshNeteaseAlbums()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            }
+        }
+    }
+
+    fun unfavoriteNeteasePodcast(podcastId: Long) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { neteaseClient.subscribeDjRadio(podcastId, false) }
+                neteasePodcastsLoaded = false
+                refreshNeteasePodcasts()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(neteaseError = e.message)
             }

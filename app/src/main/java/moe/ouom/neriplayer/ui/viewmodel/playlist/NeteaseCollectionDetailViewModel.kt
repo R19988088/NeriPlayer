@@ -106,7 +106,8 @@ data class NeteaseCollectionHeader(
     val name: String,
     val coverUrl: String,
     val playCount: Long,
-    val trackCount: Int
+    val trackCount: Int,
+    val source: String = if (isAlbum) "neteaseAlbum" else "netease"
 )
 
 @Parcelize
@@ -202,7 +203,8 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
                 name = playlist.name,
                 coverUrl = toHttps(playlist.picUrl) ?: "",
                 playCount = playlist.playCount,
-                trackCount = playlist.trackCount
+                trackCount = playlist.trackCount,
+                source = "netease"
             ),
             tracks = emptyList()
         )
@@ -254,7 +256,8 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
                 name = album.name,
                 coverUrl = toHttps(album.picUrl) ?: "",
                 playCount = 0,
-                trackCount = album.size
+                trackCount = album.size,
+                source = "neteaseAlbum"
             ),
             tracks = emptyList()
         )
@@ -285,9 +288,60 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         }
     }
 
+    fun startPodcast(podcast: PlaylistSummary) {
+        playlistId = podcast.id
+        _uiState.value = NeteaseCollectionDetailUiState(
+            loading = true,
+            header = NeteaseCollectionHeader(
+                id = podcast.id,
+                isAlbum = false,
+                name = podcast.name,
+                coverUrl = toHttps(podcast.picUrl) ?: "",
+                playCount = podcast.playCount,
+                trackCount = podcast.trackCount,
+                source = "neteasePodcast"
+            ),
+            tracks = emptyList()
+        )
+
+        viewModelScope.launch {
+            try {
+                val tracks = loadPodcastProgramsForPlayback(podcast)
+                _uiState.value = NeteaseCollectionDetailUiState(
+                    loading = false,
+                    error = null,
+                    header = _uiState.value.header,
+                    tracks = tracks
+                )
+            } catch (e: IOException) {
+                NPLogger.e(TAG_PD, "Network/Server error", e)
+                _uiState.value = _uiState.value.copy(
+                    loading = false,
+                    error = "Network or server error: ${e.message ?: e.javaClass.simpleName}"
+                )
+            } catch (e: Exception) {
+                NPLogger.e(TAG_PD, "Unexpected error", e)
+                _uiState.value = _uiState.value.copy(
+                    loading = false,
+                    error = "Parse/unknown error: ${e.message ?: e.javaClass.simpleName}"
+                )
+            }
+        }
+    }
+
     fun retry() {
         val h = _uiState.value.header ?: return
-        if (h.isAlbum) {
+        if (h.source == "neteasePodcast") {
+            startPodcast(
+                PlaylistSummary(
+                    id = h.id,
+                    name = h.name,
+                    picUrl = h.coverUrl,
+                    playCount = h.playCount,
+                    trackCount = h.trackCount
+                )
+            )
+        } else if (h.isAlbum) {
             startAlbum(
                 AlbumSummary(
                     id = h.id,
@@ -370,7 +424,8 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
             coverUrl = toHttps(pl.optString("coverImgUrl", "")) ?: "",
             playCount = pl.optLong("playCount", 0L),
             trackCount = pl.optInt("trackCount", 0),
-            isAlbum = false
+            isAlbum = false,
+            source = "netease"
         )
 
         val list = mutableListOf<SongItem>()
@@ -412,7 +467,8 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
             coverUrl = cover,
             playCount = 0L,
             trackCount = al.optInt("size", 0),
-            isAlbum = true
+            isAlbum = true,
+            source = "neteaseAlbum"
         )
 
         val list = mutableListOf<SongItem>()

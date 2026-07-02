@@ -273,6 +273,55 @@ fun NeteaseAlbumDetailScreen(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
+fun NeteasePodcastDetailScreen(
+    podcast: PlaylistSummary,
+    onBack: () -> Unit = {},
+    onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
+) {
+    val context = LocalContext.current
+    val vm: NeteaseCollectionDetailViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                val app = context.applicationContext as Application
+                NeteaseCollectionDetailViewModel(app)
+            }
+        }
+    )
+
+    val ui by vm.uiState.collectAsState()
+    LaunchedEffect(Unit) { vm.startPodcast(podcast) }
+
+    var latestHeader by remember { mutableStateOf<NeteaseCollectionHeader?>(null) }
+    LaunchedEffect(ui.header) {
+        ui.header?.let { latestHeader = it }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            latestHeader?.let { header ->
+                AppContainer.playlistUsageRepo.updateInfo(
+                    id = header.id,
+                    name = header.name,
+                    picUrl = header.coverUrl,
+                    trackCount = header.trackCount,
+                    source = "neteasePodcast"
+                )
+            }
+        }
+    }
+
+    DetailScreen(
+        ui = ui,
+        playlistId = podcast.id,
+        playlistSource = "neteasePodcast",
+        onRetry = vm::retry,
+        onBack = onBack,
+        onSongClick = onSongClick
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
 @Suppress("AssignedValueIsNeverRead")
 fun DetailScreen(
     ui: NeteaseCollectionDetailUiState,

@@ -23,7 +23,6 @@ package moe.ouom.neriplayer.ui.screen.host
  * Created: 2025/1/17
  */
 
-import android.app.Application
 import android.os.Parcelable
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
@@ -50,14 +49,12 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import moe.ouom.neriplayer.ui.screen.playlist.LocalPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteaseAlbumDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.NeteasePlaylistDetailScreen
+import moe.ouom.neriplayer.ui.screen.playlist.NeteasePodcastDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.BiliPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.playlist.YouTubeMusicPlaylistDetailScreen
 import moe.ouom.neriplayer.ui.screen.tab.LibraryTab
@@ -77,8 +74,6 @@ import moe.ouom.neriplayer.ui.util.restoreBiliPlaylist
 import moe.ouom.neriplayer.ui.util.restoreAlbumSummary
 import moe.ouom.neriplayer.ui.util.restorePlaylistSummary
 import moe.ouom.neriplayer.ui.util.restoreYouTubeMusicPlaylist
-import moe.ouom.neriplayer.ui.viewmodel.playlist.NeteaseCollectionDetailViewModel
-import moe.ouom.neriplayer.util.NPLogger
 
 @Parcelize
 sealed class LibrarySelectedItem : Parcelable {
@@ -88,6 +83,8 @@ sealed class LibrarySelectedItem : Parcelable {
     data class Netease(val playlist: PlaylistSummary) : LibrarySelectedItem()
     @Parcelize
     data class NeteaseAlbum(val album: AlbumSummary) : LibrarySelectedItem()
+    @Parcelize
+    data class NeteasePodcast(val podcast: PlaylistSummary) : LibrarySelectedItem()
     @Parcelize
     data class Bili(val playlist: BiliPlaylist) : LibrarySelectedItem()
     @Parcelize
@@ -100,7 +97,6 @@ fun LibraryHostScreen(
     onDetailSongClick: (List<SongItem>, Int) -> Unit = onSongClick,
     onPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = { _, _, _ -> },
     onDetailPlayParts: (BiliClient.VideoBasicInfo, Int, String) -> Unit = onPlayParts,
-    onOpenNowPlaying: () -> Unit = {},
     onOpenRecent: () -> Unit,
     onOpenStats: () -> Unit = {}
 ) {
@@ -157,13 +153,6 @@ fun LibraryHostScreen(
         LazyListState(firstVisibleItemIndex = 0, firstVisibleItemScrollOffset = 0)
     }
     val context = LocalContext.current
-    val neteaseDetailViewModel: NeteaseCollectionDetailViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer {
-                NeteaseCollectionDetailViewModel(context.applicationContext as Application)
-            }
-        }
-    )
 
     Surface(color = Color.Transparent) {
         AnimatedContent(
@@ -217,16 +206,7 @@ fun LibraryHostScreen(
                                 trackCount = playlist.trackCount,
                                 source = "netease"
                             )
-                            scope.launch {
-                                try {
-                                    val tracks = neteaseDetailViewModel.loadPlaylistSongsForPlayback(playlist)
-                                    if (tracks.isNotEmpty()) {
-                                        onSongClick(tracks, 0)
-                                    }
-                                } catch (error: Exception) {
-                                    NPLogger.e("LibraryHostScreen", "load netease playlist failed", error)
-                                }
-                            }
+                            selected = LibrarySelectedItem.Netease(playlist)
                         },
                         onNeteaseAlbumClick = { album ->
                             AppContainer.playlistUsageRepo.recordOpen(
@@ -236,16 +216,7 @@ fun LibraryHostScreen(
                                 trackCount = album.size,
                                 source = "neteaseAlbum"
                             )
-                            scope.launch {
-                                try {
-                                    val tracks = neteaseDetailViewModel.loadAlbumSongsForPlayback(album)
-                                    if (tracks.isNotEmpty()) {
-                                        onSongClick(tracks, 0)
-                                    }
-                                } catch (error: Exception) {
-                                    NPLogger.e("LibraryHostScreen", "load netease album failed", error)
-                                }
-                            }
+                            selected = LibrarySelectedItem.NeteaseAlbum(album)
                         },
                         onNeteasePodcastClick = { podcast ->
                             AppContainer.playlistUsageRepo.recordOpen(
@@ -255,31 +226,7 @@ fun LibraryHostScreen(
                                 trackCount = podcast.trackCount,
                                 source = "neteasePodcast"
                             )
-                            PlayerManager.showPendingPlaylist(
-                                SongItem(
-                                    id = -podcast.id,
-                                    name = podcast.name,
-                                    artist = podcast.creatorName,
-                                    album = "Netease${podcast.name}",
-                                    albumId = podcast.id,
-                                    durationMs = 0L,
-                                    coverUrl = podcast.picUrl.takeIf { it.isNotBlank() },
-                                    originalCoverUrl = podcast.picUrl.takeIf { it.isNotBlank() },
-                                    channelId = "netease",
-                                    playlistContextId = podcast.id.toString()
-                                )
-                            )
-                            onOpenNowPlaying()
-                            scope.launch {
-                                try {
-                                    val tracks = neteaseDetailViewModel.loadPodcastProgramsForPlayback(podcast)
-                                    if (tracks.isNotEmpty()) {
-                                        onSongClick(tracks, 0)
-                                    }
-                                } catch (error: Exception) {
-                                    NPLogger.e("LibraryHostScreen", "load netease podcast failed", error)
-                                }
-                            }
+                            selected = LibrarySelectedItem.NeteasePodcast(podcast)
                         },
                         onYouTubeMusicPlaylistClick = { playlist ->
                             selected = LibrarySelectedItem.YouTubeMusic(playlist)
@@ -334,6 +281,13 @@ fun LibraryHostScreen(
                             onSongClick = onDetailSongClick
                         )
                     }
+                    is LibrarySelectedItem.NeteasePodcast -> {
+                        NeteasePodcastDetailScreen(
+                            podcast = current.podcast,
+                            onBack = { selected = null },
+                            onSongClick = onDetailSongClick
+                        )
+                    }
                     is LibrarySelectedItem.YouTubeMusic -> {
                         YouTubeMusicPlaylistDetailScreen(
                             playlist = current.playlist,
@@ -373,6 +327,10 @@ private val librarySelectedItemSaver = mapSaver<LibrarySelectedItem?>(
                 "type" to "netease",
                 "playlist" to item.playlist.toSaveMap()
             )
+            is LibrarySelectedItem.NeteasePodcast -> hashMapOf(
+                "type" to "neteasePodcast",
+                "playlist" to item.podcast.toSaveMap()
+            )
             is LibrarySelectedItem.Bili -> hashMapOf(
                 "type" to "bili",
                 "playlist" to item.playlist.toSaveMap()
@@ -389,6 +347,7 @@ private val librarySelectedItemSaver = mapSaver<LibrarySelectedItem?>(
             "local" -> (saved["playlistId"] as? Number)?.toLong()?.let { LibrarySelectedItem.Local(it) }
             "neteaseAlbum" -> restoreAlbumSummary(saved["album"] as? Map<*, *>)?.let { LibrarySelectedItem.NeteaseAlbum(it) }
             "netease" -> restorePlaylistSummary(saved["playlist"] as? Map<*, *>)?.let { LibrarySelectedItem.Netease(it) }
+            "neteasePodcast" -> restorePlaylistSummary(saved["playlist"] as? Map<*, *>)?.let { LibrarySelectedItem.NeteasePodcast(it) }
             "bili" -> restoreBiliPlaylist(saved["playlist"] as? Map<*, *>)?.let { LibrarySelectedItem.Bili(it) }
             "ytmusic" -> restoreYouTubeMusicPlaylist(saved["playlist"] as? Map<*, *>)?.let { LibrarySelectedItem.YouTubeMusic(it) }
             else -> null

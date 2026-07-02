@@ -418,6 +418,33 @@ class NeteaseClient {
     }
 
     @Throws(IOException::class)
+    fun subscribePlaylist(playlistId: Long, subscribe: Boolean): String {
+        return callWeApi(
+            "/playlist/subscribe/${if (subscribe) "sub" else "unsub"}",
+            mapOf("id" to playlistId.toString()),
+            usePersistedCookies = true
+        )
+    }
+
+    @Throws(IOException::class)
+    fun subscribeAlbum(albumId: Long, subscribe: Boolean): String {
+        return callWeApi(
+            "/album/${if (subscribe) "sub" else "unsub"}",
+            mapOf("id" to albumId.toString()),
+            usePersistedCookies = true
+        )
+    }
+
+    @Throws(IOException::class)
+    fun subscribeDjRadio(radioId: Long, subscribe: Boolean): String {
+        return callWeApi(
+            "/djradio/${if (subscribe) "sub" else "unsub"}",
+            mapOf("id" to radioId.toString()),
+            usePersistedCookies = true
+        )
+    }
+
+    @Throws(IOException::class)
     fun getDjRadioPrograms(radioId: Long, offset: Int = 0, limit: Int = 1000): String {
         val url = "https://music.163.com/weapi/dj/program/byradio"
         val params = mutableMapOf<String, Any>(

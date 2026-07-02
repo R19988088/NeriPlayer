@@ -370,6 +370,7 @@ fun LibraryScreen(
                             listState = favoriteListState,
                             onNeteasePlaylistClick = onNeteasePlaylistClick,
                             onNeteaseAlbumClick = onNeteaseAlbumClick,
+                            onNeteasePodcastClick = onNeteasePodcastClick,
                             onBiliPlaylistClick = onBiliPlaylistClick,
                             onYouTubeMusicPlaylistClick = onYouTubeMusicPlaylistClick
                         )
@@ -385,7 +386,10 @@ fun LibraryScreen(
                             onModeChange = { neteaseMode = it },
                             onClick = onNeteasePlaylistClick,
                             onAlbumClick = onNeteaseAlbumClick,
-                            onPodcastClick = onNeteasePodcastClick
+                            onPodcastClick = onNeteasePodcastClick,
+                            onUnfavoritePlaylist = { vm.unfavoriteNeteasePlaylist(it.id) },
+                            onUnfavoriteAlbum = { vm.unfavoriteNeteaseAlbum(it.id) },
+                            onUnfavoritePodcast = { vm.unfavoriteNeteasePodcast(it.id) }
                         )
 
                         LibraryTab.NETEASEALBUM -> Unit
@@ -1468,7 +1472,10 @@ private fun NeteasePlaylistList(
     onModeChange: (NeteaseLibraryMode) -> Unit,
     onClick: (PlaylistSummary) -> Unit,
     onAlbumClick: (AlbumSummary) -> Unit,
-    onPodcastClick: (PlaylistSummary) -> Unit
+    onPodcastClick: (PlaylistSummary) -> Unit,
+    onUnfavoritePlaylist: (PlaylistSummary) -> Unit,
+    onUnfavoriteAlbum: (AlbumSummary) -> Unit,
+    onUnfavoritePodcast: (PlaylistSummary) -> Unit
 ) {
     NeteaseLibrarySourceContent(
         selectedMode = mode,
@@ -1478,19 +1485,22 @@ private fun NeteasePlaylistList(
             NeteaseLibraryMode.ALBUM -> NeteaseAlbumList(
                 playlists = albums,
                 listState = albumListState,
-                onClick = onAlbumClick
+                onClick = onAlbumClick,
+                onUnfavorite = onUnfavoriteAlbum
             )
             NeteaseLibraryMode.PODCAST -> NeteasePlaylistRows(
                 playlists = podcasts,
                 listState = podcastListState,
                 onClick = onPodcastClick,
+                onUnfavorite = onUnfavoritePodcast,
                 emptyTextResId = R.string.library_netease_podcast_empty,
                 isPodcast = true
             )
             NeteaseLibraryMode.PLAYLIST -> NeteasePlaylistRows(
                 playlists = playlists,
                 listState = listState,
-                onClick = onClick
+                onClick = onClick,
+                onUnfavorite = onUnfavoritePlaylist
             )
         }
     }
@@ -1522,16 +1532,19 @@ private fun NeteaseLibrarySourceContent(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun NeteasePlaylistRows(
     playlists: List<PlaylistSummary>,
     listState: LazyListState,
     onClick: (PlaylistSummary) -> Unit,
+    onUnfavorite: (PlaylistSummary) -> Unit,
     emptyTextResId: Int = R.string.library_netease_playlist_empty,
     isPodcast: Boolean = false
 ) {
     val context = LocalContext.current
     val miniPlayerHeight = LocalMiniPlayerHeight.current
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var unfavoriteTarget by remember { mutableStateOf<PlaylistSummary?>(null) }
     val filteredPlaylists = remember(playlists, searchQuery) {
         filterNeteasePlaylists(playlists, searchQuery)
     }
@@ -1633,7 +1646,10 @@ private fun NeteasePlaylistRows(
                     .padding(horizontal = 8.dp, vertical = 4.dp)
                     .animateItem()
                     .clip(cardShape)
-                    .clickable { onClick(pl) }
+                    .combinedClickable(
+                        onClick = { onClick(pl) },
+                        onLongClick = { unfavoriteTarget = pl }
+                    )
             ) {
                 ListItem(
                     headlineContent = { Text(pl.name) },
@@ -1668,16 +1684,40 @@ private fun NeteasePlaylistRows(
             }
         }
     }
+
+    unfavoriteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { unfavoriteTarget = null },
+            title = { Text(stringResource(R.string.action_unfavorite)) },
+            text = { Text(target.name) },
+            confirmButton = {
+                HapticTextButton(
+                    onClick = {
+                        onUnfavorite(target)
+                        unfavoriteTarget = null
+                    }
+                ) { Text(stringResource(R.string.action_unfavorite)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { unfavoriteTarget = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun NeteaseAlbumList(
     playlists: List<AlbumSummary>,
     listState: LazyListState,
-    onClick: (AlbumSummary) -> Unit
+    onClick: (AlbumSummary) -> Unit,
+    onUnfavorite: (AlbumSummary) -> Unit
 ) {
     val miniPlayerHeight = LocalMiniPlayerHeight.current
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var unfavoriteTarget by remember { mutableStateOf<AlbumSummary?>(null) }
     val filteredAlbums = remember(playlists, searchQuery) {
         filterNeteaseAlbums(playlists, searchQuery)
     }
@@ -1774,7 +1814,10 @@ private fun NeteaseAlbumList(
                 modifier = Modifier
                     .animateItem()
                     .clip(cardShape)
-                    .clickable { onClick(pl) }
+                    .combinedClickable(
+                        onClick = { onClick(pl) },
+                        onLongClick = { unfavoriteTarget = pl }
+                    )
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current).data(pl.picUrl).build(),
@@ -1800,6 +1843,27 @@ private fun NeteaseAlbumList(
             }
         }
     }
+
+    unfavoriteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { unfavoriteTarget = null },
+            title = { Text(stringResource(R.string.action_unfavorite)) },
+            text = { Text(target.name) },
+            confirmButton = {
+                HapticTextButton(
+                    onClick = {
+                        onUnfavorite(target)
+                        unfavoriteTarget = null
+                    }
+                ) { Text(stringResource(R.string.action_unfavorite)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { unfavoriteTarget = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -1807,6 +1871,7 @@ private fun FavoritePlaylistList(
     listState: LazyListState,
     onNeteasePlaylistClick: (PlaylistSummary) -> Unit,
     onNeteaseAlbumClick: (AlbumSummary) -> Unit,
+    onNeteasePodcastClick: (PlaylistSummary) -> Unit,
     onBiliPlaylistClick: (BiliPlaylist) -> Unit,
     onYouTubeMusicPlaylistClick: (YouTubeMusicPlaylist) -> Unit
 ) {
@@ -2032,17 +2097,29 @@ private fun FavoritePlaylistList(
                                                 )
                                             )
                                         }
-                                        "neteaseAlbum" -> {
-                                            onNeteaseAlbumClick(
-                                                AlbumSummary(
+                        "neteaseAlbum" -> {
+                            onNeteaseAlbumClick(
+                                AlbumSummary(
                                                     id = favorite.id,
                                                     name = favorite.name,
                                                     picUrl = favorite.coverUrl.orEmpty(),
                                                     size = favorite.trackCount
-                                                )
-                                            )
-                                        }
-                                        "youtubeMusic" -> {
+                                )
+                            )
+                        }
+                        "neteasePodcast" -> {
+                            onNeteasePodcastClick(
+                                PlaylistSummary(
+                                    id = favorite.id,
+                                    name = favorite.name,
+                                    picUrl = favorite.coverUrl.orEmpty(),
+                                    playCount = 0,
+                                    trackCount = favorite.trackCount,
+                                    creatorName = favorite.subtitle.orEmpty()
+                                )
+                            )
+                        }
+                        "youtubeMusic" -> {
                                             val resolvedBrowseId = favorite.browseId
                                                 ?.takeIf { it.isNotBlank() }
                                                 ?: favorite.playlistId

@@ -1234,7 +1234,6 @@ private fun NeriAppContent(
                                         onDetailSongClick = ::playSongsInline,
                                         onPlayParts = ::playBiliPartsAndOpenNowPlaying,
                                         onDetailPlayParts = ::playBiliPartsInline,
-                                        onOpenNowPlaying = { showNowPlaying = true },
                                         onOpenRecent = { navController.navigate(Destinations.Recent.route) },
                                         onOpenStats = { navController.navigate(Destinations.PlaybackStats.route) }
                                     )

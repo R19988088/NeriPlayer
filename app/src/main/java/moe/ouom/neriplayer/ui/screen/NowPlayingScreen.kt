@@ -235,6 +235,7 @@ import moe.ouom.neriplayer.ui.component.resolvePreferredLyricContent
 import moe.ouom.neriplayer.ui.component.resolveStoredLyricText
 import moe.ouom.neriplayer.ui.component.toEditableLyricsText
 import moe.ouom.neriplayer.ui.screen.debug.ListenTogetherRoomPanel
+import moe.ouom.neriplayer.ui.screen.playlist.PlayingIndicator
 import moe.ouom.neriplayer.ui.viewmodel.NowPlayingViewModel
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
 import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
@@ -1031,10 +1032,9 @@ fun NowPlayingScreen(
                                     )
                                 }
                                 if (isCurrent) {
-                                    Icon(
-                                        Icons.Outlined.PlayArrow,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
+                                    PlayingIndicator(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        animate = isPlaying
                                     )
                                 }
                             }
