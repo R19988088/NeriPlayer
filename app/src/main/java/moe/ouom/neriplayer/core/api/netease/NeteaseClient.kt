@@ -576,9 +576,8 @@ class NeteaseClient {
             val created = JSONArray()
             for (i in 0 until list.length()) {
                 val pl = list.optJSONObject(i) ?: continue
-                val subscribed = pl.optBoolean("subscribed", false)
                 val creatorId = pl.optJSONObject("creator")?.optLong("userId") ?: -1L
-                if (creatorId == uid || !subscribed) {
+                if (creatorId == uid) {
                     created.put(pl)
                 }
             }
@@ -620,7 +619,10 @@ class NeteaseClient {
             val subs = JSONArray()
             for (i in 0 until list.length()) {
                 val pl = list.optJSONObject(i) ?: continue
-                if (pl.optBoolean("subscribed", false)) subs.put(pl)
+                val creatorId = pl.optJSONObject("creator")?.optLong("userId") ?: -1L
+                if (creatorId > 0L && creatorId != uid) {
+                    subs.put(pl)
+                }
             }
             JSONObject().apply {
                 put("code", code)

@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
@@ -102,6 +104,7 @@ internal fun PlaylistHeroHeader(
     val detailTint = rememberPlaylistCoverTint(cover)
     val isDark = isSystemInDarkTheme()
     val textColor = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface
+    val coverHeight = (height - 132.dp).coerceAtLeast(220.dp)
 
     Box(
         modifier = modifier
@@ -126,7 +129,7 @@ internal fun PlaylistHeroHeader(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(height)
+                .height(coverHeight)
                 .drawWithContent {
                     drawContent()
                     drawRect(
@@ -142,8 +145,6 @@ internal fun PlaylistHeroHeader(
                     )
                 }
         )
-
-        val infoText = listOf(title, subtitle).filter { it.isNotBlank() }.joinToString("\n")
 
         SurfaceLiquidCapsule(
             modifier = Modifier
@@ -164,43 +165,7 @@ internal fun PlaylistHeroHeader(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(end = 16.dp, top = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PlaylistHeroCircleButton(
-                onClick = onInfoClick ?: {
-                    Toast.makeText(context, infoText.ifBlank { title }, Toast.LENGTH_SHORT).show()
-                },
-                size = 54.dp,
-                contentDescription = infoText.ifBlank { stringResource(R.string.action_details) },
-                tint = textColor
-            ) {
-                Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(30.dp))
-            }
-
-            PlaylistHeroCircleButton(
-                onClick = onFavoriteClick,
-                size = 54.dp,
-                contentDescription = if (isFavorite) {
-                    stringResource(R.string.nowplaying_favorited)
-                } else {
-                    stringResource(R.string.nowplaying_favorite)
-                },
-                tint = textColor,
-                active = isFavorite
-            ) {
-                Icon(
-                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                    contentDescription = null,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-        }
+        val infoText = listOf(title, subtitle).filter { it.isNotBlank() }.joinToString("\n")
 
         Column(
             modifier = Modifier
@@ -229,6 +194,56 @@ internal fun PlaylistHeroHeader(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PlaylistHeroCircleButton(
+                    onClick = onInfoClick ?: {
+                        Toast.makeText(context, infoText.ifBlank { title }, Toast.LENGTH_SHORT).show()
+                    },
+                    size = 54.dp,
+                    contentDescription = stringResource(R.string.action_details),
+                    tint = textColor
+                ) {
+                    Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(30.dp))
+                }
+
+                HapticIconButton(
+                    onClick = onPlay,
+                    enabled = playEnabled,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.52f))
+                ) {
+                    Icon(
+                        if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.player_play_all),
+                        tint = Color.Black.copy(alpha = 0.72f),
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+
+                PlaylistHeroCircleButton(
+                    onClick = onFavoriteClick,
+                    size = 54.dp,
+                    contentDescription = if (isFavorite) {
+                        stringResource(R.string.nowplaying_favorited)
+                    } else {
+                        stringResource(R.string.nowplaying_favorite)
+                    },
+                    tint = textColor,
+                    active = isFavorite
+                ) {
+                    Icon(
+                        if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(30.dp)
                     )
                 }
             }

@@ -104,8 +104,6 @@ import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Share
@@ -247,7 +245,6 @@ import moe.ouom.neriplayer.ui.screen.playlist.PlayingIndicator
 import moe.ouom.neriplayer.ui.viewmodel.NowPlayingViewModel
 import moe.ouom.neriplayer.ui.viewmodel.playlist.SongItem
 import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
-import moe.ouom.neriplayer.util.HapticFilledIconButton
 import moe.ouom.neriplayer.util.HapticIconButton
 import moe.ouom.neriplayer.util.HapticTextButton
 import moe.ouom.neriplayer.util.NPLogger
@@ -255,6 +252,7 @@ import moe.ouom.neriplayer.util.formatDate
 import moe.ouom.neriplayer.util.formatDuration
 import moe.ouom.neriplayer.util.offlineCachedImageRequest
 import moe.ouom.neriplayer.util.saveCoverToPictures
+import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -271,6 +269,25 @@ internal fun shouldHideDownloadActionForSong(
 
 internal fun buildNowPlayingQueueItemKey(index: Int, song: SongItem): String {
     return "$index:${song.stableKey()}"
+}
+
+private fun SongItem.isNeteaseAlbumFavoriteTarget(): Boolean {
+    return channelId == "netease" && albumId != 0L
+}
+
+private fun String.containsNeteaseCollectionId(id: Long): Boolean {
+    val root = JSONObject(this)
+    val data = root.opt("data")
+    val items = root.optJSONArray("data")
+        ?: (data as? JSONArray)
+        ?: (data as? JSONObject)?.optJSONArray("list")
+        ?: JSONArray()
+    for (index in 0 until items.length()) {
+        val item = items.optJSONObject(index) ?: continue
+        val collection = item.optJSONObject("dataInfo")?.optJSONObject("data") ?: item
+        if (collection.optLong("id", 0L) == id) return true
+    }
+    return false
 }
 
 internal fun resolveNowPlayingPlaybackSourceType(
@@ -387,9 +404,7 @@ fun NowPlayingScreen(
     val isPendingPlaylist = pendingQueue.isNotEmpty()
     val currentSong = pendingQueue.getOrNull(pendingQueueStartIndex) ?: actualCurrentSong
     val rawIsPlaying by PlayerManager.isPlayingFlow.collectAsState()
-    val rawPlaybackControlPlaying by PlayerManager.playbackControlPlayingFlow.collectAsState()
     val isPlaying = if (isPendingPlaylist) false else rawIsPlaying
-    val isPlaybackControlPlaying = if (isPendingPlaylist) false else rawPlaybackControlPlaying
     val durationMs = currentSong?.durationMs ?: 0L
     val actualCurrentPlaybackAudioInfo by PlayerManager.currentPlaybackAudioInfoFlow.collectAsState()
     val currentPlaybackAudioInfo = if (isPendingPlaylist) null else actualCurrentPlaybackAudioInfo
@@ -423,7 +438,31 @@ fun NowPlayingScreen(
             favOverride = null
         }
     }
-    val isFavorite = favOverride ?: isFavoriteComputed
+    val isNeteaseAlbumFavorite = currentSong?.isNeteaseAlbumFavoriteTarget() == true
+    var neteaseAlbumFavorite by remember(currentSong?.albumId) { mutableStateOf(false) }
+    var neteaseAlbumFavoriteOverride by remember(currentSong?.albumId) { mutableStateOf<Boolean?>(null) }
+
+    LaunchedEffect(isNeteaseAlbumFavorite, currentSong?.albumId) {
+        neteaseAlbumFavoriteOverride = null
+        val albumId = currentSong?.albumId ?: 0L
+        if (!isNeteaseAlbumFavorite || albumId == 0L) {
+            neteaseAlbumFavorite = false
+            return@LaunchedEffect
+        }
+        neteaseAlbumFavorite = withContext(Dispatchers.IO) {
+            runCatching {
+                AppContainer.neteaseClient
+                    .getUserStaredAlbums(0)
+                    .containsNeteaseCollectionId(albumId)
+            }.getOrDefault(false)
+        }
+    }
+
+    val isFavorite = if (isNeteaseAlbumFavorite) {
+        neteaseAlbumFavoriteOverride ?: neteaseAlbumFavorite
+    } else {
+        favOverride ?: isFavoriteComputed
+    }
 
     val queue by PlayerManager.currentQueueFlow.collectAsState()
     val displayedQueue = if (isPendingPlaylist) pendingQueue else queue
@@ -811,18 +850,80 @@ fun NowPlayingScreen(
                                 )
                             }
 
-                            HapticIconButton(
-                                onClick = { showTopMoreOptions = true },
+                            Row(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .size(48.dp)
-                                    .zIndex(1f)
+                                    .zIndex(1f),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = stringResource(R.string.action_more),
-                                    tint = nowPlayingText
-                                )
+                                HapticIconButton(
+                                    onClick = { showAlbumInfoDialog = true },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Info,
+                                        contentDescription = stringResource(R.string.action_details),
+                                        tint = nowPlayingText
+                                    )
+                                }
+
+                                HapticIconButton(
+                                    onClick = {
+                                        val song = currentSong ?: return@HapticIconButton
+                                        val willFav = !isFavorite
+                                        if (isNeteaseAlbumFavorite) {
+                                            val albumId = song.albumId
+                                            neteaseAlbumFavoriteOverride = willFav
+                                            screenScope.launch {
+                                                runCatching {
+                                                    withContext(Dispatchers.IO) {
+                                                        AppContainer.neteaseClient.subscribeAlbum(albumId, willFav)
+                                                    }
+                                                }.onSuccess {
+                                                    neteaseAlbumFavorite = willFav
+                                                    neteaseAlbumFavoriteOverride = null
+                                                }.onFailure { error ->
+                                                    neteaseAlbumFavoriteOverride = null
+                                                    snackbarHostState.showSnackbar(
+                                                        error.message ?: context.getString(R.string.download_failed)
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            launchWithLocalSyncWarning(
+                                                song = song,
+                                                actionLabel = context.getString(R.string.favorite_add),
+                                                warnForLocalSync = willFav
+                                            ) {
+                                                favOverride = willFav
+                                                if (willFav) {
+                                                    PlayerManager.addCurrentToFavorites()
+                                                } else {
+                                                    PlayerManager.removeCurrentFromFavorites()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                        contentDescription = if (isFavorite) stringResource(R.string.nowplaying_favorited) else stringResource(R.string.nowplaying_favorite),
+                                        tint = if (isFavorite) MaterialTheme.colorScheme.primary else nowPlayingText
+                                    )
+                                }
+
+                                HapticIconButton(
+                                    onClick = { showTopMoreOptions = true },
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.MoreVert,
+                                        contentDescription = stringResource(R.string.action_more),
+                                        tint = nowPlayingText
+                                    )
+                                }
                             }
 
                             DropdownMenu(
@@ -840,76 +941,7 @@ fun NowPlayingScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(15.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HapticIconButton(
-                            onClick = {
-                                showAlbumInfoDialog = true
-                            },
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                Icons.Outlined.Info,
-                                contentDescription = stringResource(R.string.action_details),
-                                tint = nowPlayingText
-                            )
-                        }
-
-                        HapticFilledIconButton(
-                            onClick = {
-                                if (isPendingPlaylist) {
-                                    PlayerManager.playPendingPlaylist()
-                                } else {
-                                    PlayerManager.togglePlayPause()
-                                }
-                            },
-                            modifier = Modifier.size(58.dp)
-                        ) {
-                            AnimatedContent(
-                                targetState = isPlaybackControlPlaying,
-                                label = "play_pause_icon",
-                                transitionSpec = { (scaleIn() + fadeIn()) togetherWith (scaleOut() + fadeOut()) }
-                            ) { currentlyPlaying ->
-                                Icon(
-                                    imageVector = if (currentlyPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                                    contentDescription = if (currentlyPlaying) stringResource(R.string.player_pause) else stringResource(R.string.player_play)
-                                )
-                            }
-                        }
-
-                        HapticIconButton(
-                            onClick = {
-                                if (currentSong == null) return@HapticIconButton
-                                val willFav = !isFavorite
-                                launchWithLocalSyncWarning(
-                                    song = currentSong,
-                                    actionLabel = context.getString(R.string.favorite_add),
-                                    warnForLocalSync = willFav
-                                ) {
-                                    favOverride = willFav
-                                    if (willFav) {
-                                        PlayerManager.addCurrentToFavorites()
-                                    } else {
-                                        PlayerManager.removeCurrentFromFavorites()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = if (isFavorite) stringResource(R.string.nowplaying_favorited) else stringResource(R.string.nowplaying_favorite),
-                                tint = if (isFavorite) MaterialTheme.colorScheme.primary else nowPlayingText
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(5.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     if (showTopMoreOptions && currentSong != null) {
                         MoreOptionsSheet(

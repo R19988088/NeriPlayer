@@ -42,7 +42,6 @@ import moe.ouom.neriplayer.core.di.AppContainer
 import moe.ouom.neriplayer.ui.viewmodel.tab.AlbumSummary
 import moe.ouom.neriplayer.ui.viewmodel.tab.PlaylistSummary
 import moe.ouom.neriplayer.util.NPLogger
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
@@ -108,8 +107,7 @@ data class NeteaseCollectionHeader(
     val coverUrl: String,
     val playCount: Long,
     val trackCount: Int,
-    val source: String = if (isAlbum) "neteaseAlbum" else "netease",
-    val subscribed: Boolean = false
+    val source: String = if (isAlbum) "neteaseAlbum" else "netease"
 )
 
 @Parcelize
@@ -214,12 +212,11 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         viewModelScope.launch {
             try {
                 val (header, tracks) = loadPlaylistDetail(playlist)
-                val subscribed = resolveSubscriptionStatus(header)
 
                 _uiState.value = NeteaseCollectionDetailUiState(
                     loading = false,
                     error = null,
-                    header = header.copy(subscribed = subscribed),
+                    header = header,
                     tracks = tracks
                 )
             } catch (e: IOException) {
@@ -247,7 +244,6 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
                 header = cached.header,
                 tracks = cached.tracks
             )
-            refreshSubscriptionStatus()
             return
         }
 
@@ -269,12 +265,11 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         viewModelScope.launch {
             try {
                 val (header, tracks) = loadAlbumDetail(album)
-                val subscribed = resolveSubscriptionStatus(header)
 
                 _uiState.value = NeteaseCollectionDetailUiState(
                     loading = false,
                     error = null,
-                    header = header.copy(subscribed = subscribed),
+                    header = header,
                     tracks = tracks
                 )
             } catch (e: IOException) {
@@ -312,12 +307,10 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
         viewModelScope.launch {
             try {
                 val tracks = loadPodcastProgramsForPlayback(podcast)
-                val header = _uiState.value.header
-                val subscribed = header?.let { resolveSubscriptionStatus(it) } ?: false
                 _uiState.value = NeteaseCollectionDetailUiState(
                     loading = false,
                     error = null,
-                    header = header?.copy(subscribed = subscribed),
+                    header = _uiState.value.header,
                     tracks = tracks
                 )
             } catch (e: IOException) {
@@ -333,41 +326,6 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
                     error = "Parse/unknown error: ${e.message ?: e.javaClass.simpleName}"
                 )
             }
-        }
-    }
-
-    fun toggleSubscription() {
-        val header = _uiState.value.header ?: return
-        val target = !header.subscribed
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    when (header.source) {
-                        "neteaseAlbum" -> client.subscribeAlbum(header.id, target)
-                        "neteasePodcast" -> client.subscribeDjRadio(header.id, target)
-                        else -> client.subscribePlaylist(header.id, target)
-                    }
-                }
-                if (header.source == "neteaseAlbum") {
-                    synchronized(neteaseAlbumDetailCache) { neteaseAlbumDetailCache.remove(header.id) }
-                }
-                _uiState.value = _uiState.value.copy(header = header.copy(subscribed = target))
-            } catch (e: Exception) {
-                NPLogger.e(TAG_PD, "toggle subscription failed", e)
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: e.javaClass.simpleName
-                )
-            }
-        }
-    }
-
-    private fun refreshSubscriptionStatus() {
-        val header = _uiState.value.header ?: return
-        viewModelScope.launch {
-            val subscribed = resolveSubscriptionStatus(header)
-            _uiState.value = _uiState.value.copy(
-                header = _uiState.value.header?.copy(subscribed = subscribed)
-            )
         }
     }
 
@@ -467,8 +425,7 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
             playCount = pl.optLong("playCount", 0L),
             trackCount = pl.optInt("trackCount", 0),
             isAlbum = false,
-            source = "netease",
-            subscribed = pl.optBoolean("subscribed", false)
+            source = "netease"
         )
 
         val list = mutableListOf<SongItem>()
@@ -511,8 +468,7 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
             playCount = 0L,
             trackCount = al.optInt("size", 0),
             isAlbum = true,
-            source = "neteaseAlbum",
-            subscribed = al.optBoolean("subscribed", al.optBoolean("sub", false))
+            source = "neteaseAlbum"
         )
 
         val list = mutableListOf<SongItem>()
@@ -607,48 +563,5 @@ class NeteaseCollectionDetailViewModel(application: Application) : AndroidViewMo
             parseSongItem(t)?.let { out.add(it) }
         }
         return out
-    }
-
-    private suspend fun resolveSubscriptionStatus(header: NeteaseCollectionHeader): Boolean {
-        return runCatching {
-            withContext(Dispatchers.IO) {
-                when (header.source) {
-                    "neteaseAlbum" -> containsNeteaseId(
-                        JSONObject(client.getUserStaredAlbums(0)).optJSONArray("data")
-                            ?: JSONArray(),
-                        header.id
-                    )
-                    "neteasePodcast" -> containsNeteaseId(
-                        parsePodcastSubscriptionArray(client.getUserDjRadios(0)),
-                        header.id
-                    )
-                    else -> containsNeteaseId(
-                        JSONObject(client.getUserSubscribedPlaylists(0)).optJSONArray("playlist")
-                            ?: JSONArray(),
-                        header.id
-                    )
-                }
-            }
-        }.getOrElse { header.subscribed }
-    }
-
-    private fun parsePodcastSubscriptionArray(raw: String): JSONArray {
-        val root = JSONObject(raw)
-        val data = root.opt("data")
-        return root.optJSONArray("djRadios")
-            ?: (data as? JSONArray)
-            ?: (data as? JSONObject)?.optJSONArray("djRadios")
-            ?: (data as? JSONObject)?.optJSONArray("list")
-            ?: JSONArray()
-    }
-
-    private fun containsNeteaseId(items: JSONArray, id: Long): Boolean {
-        for (i in 0 until items.length()) {
-            val item = items.optJSONObject(i) ?: continue
-            val obj = item.optJSONObject("dataInfo")?.optJSONObject("data") ?: item
-            val candidate = obj.optLong("id", obj.optLong("radioId", 0L))
-            if (candidate == id) return true
-        }
-        return false
     }
 }
