@@ -151,7 +151,8 @@ private fun LibraryTab.sourceLabelResId(): Int {
 private enum class NeteaseLibraryMode(val labelResId: Int) {
     PLAYLIST(R.string.library_source_netease_playlists),
     ALBUM(R.string.library_source_netease_albums),
-    PODCAST(R.string.library_source_netease_podcasts)
+    PODCAST(R.string.library_source_netease_podcasts),
+    FAVORITE_PLAYLIST(R.string.library_source_netease_favorite_playlists)
 }
 
 private fun librarySourceDisplayOrder(isInternational: Boolean): List<LibraryTab> {
@@ -377,6 +378,7 @@ fun LibraryScreen(
 
                         LibraryTab.NETEASE -> NeteasePlaylistList(
                             playlists = ui.neteasePlaylists,
+                            favoritePlaylists = ui.neteaseFavoritePlaylists,
                             albums = ui.neteaseAlbums,
                             podcasts = ui.neteasePodcasts,
                             listState = neteaseListState,
@@ -1463,6 +1465,7 @@ private fun LocalPlaylistList(
 @Composable
 private fun NeteasePlaylistList(
     playlists: List<PlaylistSummary>,
+    favoritePlaylists: List<PlaylistSummary>,
     albums: List<AlbumSummary>,
     podcasts: List<PlaylistSummary>,
     listState: LazyListState,
@@ -1500,7 +1503,14 @@ private fun NeteasePlaylistList(
                 playlists = playlists,
                 listState = listState,
                 onClick = onClick,
-                onUnfavorite = onUnfavoritePlaylist
+                onUnfavorite = null
+            )
+            NeteaseLibraryMode.FAVORITE_PLAYLIST -> NeteasePlaylistRows(
+                playlists = favoritePlaylists,
+                listState = listState,
+                onClick = onClick,
+                onUnfavorite = onUnfavoritePlaylist,
+                emptyTextResId = R.string.library_netease_favorite_playlist_empty
             )
         }
     }
@@ -1537,7 +1547,7 @@ private fun NeteasePlaylistRows(
     playlists: List<PlaylistSummary>,
     listState: LazyListState,
     onClick: (PlaylistSummary) -> Unit,
-    onUnfavorite: (PlaylistSummary) -> Unit,
+    onUnfavorite: ((PlaylistSummary) -> Unit)?,
     emptyTextResId: Int = R.string.library_netease_playlist_empty,
     isPodcast: Boolean = false
 ) {
@@ -1648,7 +1658,7 @@ private fun NeteasePlaylistRows(
                     .clip(cardShape)
                     .combinedClickable(
                         onClick = { onClick(pl) },
-                        onLongClick = { unfavoriteTarget = pl }
+                        onLongClick = if (onUnfavorite == null) null else ({ unfavoriteTarget = pl })
                     )
             ) {
                 ListItem(
@@ -1693,7 +1703,7 @@ private fun NeteasePlaylistRows(
             confirmButton = {
                 HapticTextButton(
                     onClick = {
-                        onUnfavorite(target)
+                        onUnfavorite?.invoke(target)
                         unfavoriteTarget = null
                     }
                 ) { Text(stringResource(R.string.action_unfavorite)) }

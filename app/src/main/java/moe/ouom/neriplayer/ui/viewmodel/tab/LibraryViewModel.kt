@@ -54,6 +54,7 @@ private var cachedNeteaseAlbums: List<AlbumSummary>? = null
 data class LibraryUiState(
     val localPlaylists: List<LocalPlaylist> = emptyList(),
     val neteasePlaylists: List<PlaylistSummary> = emptyList(),
+    val neteaseFavoritePlaylists: List<PlaylistSummary> = emptyList(),
     val neteaseAlbums: List<AlbumSummary> = emptyList(),
     val neteasePodcasts: List<PlaylistSummary> = emptyList(),
     val neteaseError: String? = null,
@@ -98,9 +99,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 mutable.putIfAbsent("os", "pc")
                 if (!cookies["MUSIC_U"].isNullOrBlank()) {
                     refreshNeteasePlaylists()
+                    refreshNeteaseFavoritePlaylists()
                 } else {
                     _uiState.value = _uiState.value.copy(
                         neteasePlaylists = emptyList(),
+                        neteaseFavoritePlaylists = emptyList(),
                         neteaseError = null
                     )
                 }
@@ -280,10 +283,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 val uid = withContext(Dispatchers.IO) { neteaseClient.getCurrentUserId() }
-                val raw = withContext(Dispatchers.IO) { neteaseClient.getUserSubscribedPlaylists(uid) }
+                val raw = withContext(Dispatchers.IO) { neteaseClient.getUserCreatedPlaylists(uid) }
                 val mapped = parseNeteasePlaylists(raw)
                 _uiState.value = _uiState.value.copy(
                     neteasePlaylists = mapped,
+                    neteaseError = null
+                )
+            } catch (e: IOException) {
+                _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(neteaseError = e.message)
+            }
+        }
+    }
+
+    fun refreshNeteaseFavoritePlaylists() {
+        viewModelScope.launch {
+            try {
+                val uid = withContext(Dispatchers.IO) { neteaseClient.getCurrentUserId() }
+                val raw = withContext(Dispatchers.IO) { neteaseClient.getUserSubscribedPlaylists(uid) }
+                val mapped = parseNeteasePlaylists(raw)
+                _uiState.value = _uiState.value.copy(
+                    neteaseFavoritePlaylists = mapped,
                     neteaseError = null
                 )
             } catch (e: IOException) {
@@ -344,7 +365,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) { neteaseClient.subscribePlaylist(playlistId, false) }
-                refreshNeteasePlaylists()
+                refreshNeteaseFavoritePlaylists()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(neteaseError = e.message)
             }

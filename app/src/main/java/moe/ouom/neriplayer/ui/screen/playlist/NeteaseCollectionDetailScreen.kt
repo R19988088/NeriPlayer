@@ -148,7 +148,6 @@ import moe.ouom.neriplayer.data.model.displayArtist
 import moe.ouom.neriplayer.data.model.displayCoverUrl
 import moe.ouom.neriplayer.data.model.displayName
 import moe.ouom.neriplayer.data.model.sameIdentityAs
-import moe.ouom.neriplayer.data.playlist.favorite.FavoritePlaylistRepository
 import moe.ouom.neriplayer.ui.LocalMiniPlayerHeight
 import moe.ouom.neriplayer.ui.component.BatchDownloadManagerSheet
 import moe.ouom.neriplayer.ui.component.NeriMiniPlayerHost
@@ -213,7 +212,7 @@ fun NeteasePlaylistDetailScreen(
     DetailScreen(
         ui = ui,
         playlistId = playlist.id,
-        playlistSource = "netease",
+        onFavoriteClick = vm::toggleSubscription,
         onRetry = vm::retry,
         onBack = onBack,
         onSongClick = onSongClick
@@ -265,7 +264,7 @@ fun NeteaseAlbumDetailScreen(
     DetailScreen(
         ui = ui,
         playlistId = album.id,
-        playlistSource = "neteaseAlbum",
+        onFavoriteClick = vm::toggleSubscription,
         onRetry = vm::retry,
         onBack = onBack,
         onSongClick = onSongClick
@@ -314,7 +313,7 @@ fun NeteasePodcastDetailScreen(
     DetailScreen(
         ui = ui,
         playlistId = podcast.id,
-        playlistSource = "neteasePodcast",
+        onFavoriteClick = vm::toggleSubscription,
         onRetry = vm::retry,
         onBack = onBack,
         onSongClick = onSongClick
@@ -327,7 +326,7 @@ fun NeteasePodcastDetailScreen(
 fun DetailScreen(
     ui: NeteaseCollectionDetailUiState,
     playlistId: Long,
-    playlistSource: String,
+    onFavoriteClick: () -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit = {},
     onSongClick: (List<SongItem>, Int) -> Unit = { _, _ -> }
@@ -366,42 +365,7 @@ fun DetailScreen(
     fun selectAll() { selectedIds = ui.tracks.map { it.id }.toSet() }
     fun exitSelection() { selectionMode = false; clearSelection();}
 
-    // 收藏歌单
-    val favoriteRepo = remember(context) { FavoritePlaylistRepository.getInstance(context) }
-    val favorites by favoriteRepo.favorites.collectAsState()
-    val isFavorite = remember(favorites, playlistId) {
-        favoriteRepo.isFavorite(playlistId, playlistSource)
-    }
-    fun toggleFavorite() {
-        val header = ui.header ?: return
-        scope.launch {
-            if (isFavorite) {
-                favoriteRepo.removeFavorite(header.id, playlistSource)
-            } else {
-                favoriteRepo.addFavorite(
-                    id = header.id,
-                    name = header.name,
-                    coverUrl = header.coverUrl,
-                    trackCount = header.trackCount,
-                    source = playlistSource,
-                    songs = ui.tracks
-                )
-            }
-        }
-    }
-
-    LaunchedEffect(isFavorite, ui.header, ui.tracks) {
-        if (!isFavorite) return@LaunchedEffect
-        val header = ui.header ?: return@LaunchedEffect
-        favoriteRepo.updateFavoriteMeta(
-            id = header.id,
-            name = header.name,
-            coverUrl = header.coverUrl,
-            trackCount = header.trackCount,
-            source = playlistSource,
-            songs = ui.tracks
-        )
-    }
+    val isFavorite = ui.header?.subscribed == true
 
     var showExportSheet by remember { mutableStateOf(false) }
     val exportSheetState = rememberModalBottomSheetState()
@@ -541,7 +505,7 @@ fun DetailScreen(
                                     playEnabled = ui.tracks.isNotEmpty(),
                                     isPlaying = isPlaying && currentIndex >= 0,
                                     isFavorite = isFavorite,
-                                    onFavoriteClick = ::toggleFavorite,
+                                    onFavoriteClick = onFavoriteClick,
                                     height = headerHeight
                                 )
                             }
