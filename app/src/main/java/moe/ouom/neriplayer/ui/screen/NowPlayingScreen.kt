@@ -1032,6 +1032,7 @@ fun NowPlayingScreen(
                                 .fillMaxWidth(),
                             onExpand = {},
                             backdrop = bottomBarBackdrop,
+                            horizontalPadding = 8.dp,
                             progressContent = {
                                 NowPlayingProgressSection(
                                     songKey = currentSong?.stableKey(),

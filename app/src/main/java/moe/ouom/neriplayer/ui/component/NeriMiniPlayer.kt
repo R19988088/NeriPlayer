@@ -70,6 +70,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.kyant.backdrop.Backdrop
@@ -92,6 +93,8 @@ import moe.ouom.neriplayer.util.fastScrollableImageRequest
 object NeriMiniPlayerDefaults {
     val Height = 64.dp
     val ExpandedHeight = 112.dp
+    val HorizontalPadding = 18.dp
+    val BottomPadding = 10.dp
 }
 
 private val LiquidContentShadow = Shadow(
@@ -112,6 +115,8 @@ fun NeriMiniPlayerHost(
     onExpand: () -> Unit = {},
     backdrop: Backdrop? = null,
     progressContent: (@Composable () -> Unit)? = null,
+    horizontalPadding: Dp = NeriMiniPlayerDefaults.HorizontalPadding,
+    bottomPadding: Dp = NeriMiniPlayerDefaults.BottomPadding,
 ) {
     val context = LocalContext.current
     val song by PlayerManager.currentSongFlow.collectAsState()
@@ -127,6 +132,8 @@ fun NeriMiniPlayerHost(
             onExpand = onExpand,
             backdrop = backdrop,
             progressContent = progressContent,
+            horizontalPadding = horizontalPadding,
+            bottomPadding = bottomPadding,
         )
     }
 }
@@ -167,6 +174,8 @@ fun NeriMiniPlayer(
     onExpand: () -> Unit,
     backdrop: Backdrop? = null,
     progressContent: (@Composable () -> Unit)? = null,
+    horizontalPadding: Dp = NeriMiniPlayerDefaults.HorizontalPadding,
+    bottomPadding: Dp = NeriMiniPlayerDefaults.BottomPadding,
 ) {
     val shape = RoundedCornerShape(26.dp)
     val isLightTheme = !isSystemInDarkTheme()
@@ -176,7 +185,7 @@ fun NeriMiniPlayer(
     val coverRequestSizePx = if (expanded) 160 else 128
     val baseModifier = modifier
         .height(if (expanded) NeriMiniPlayerDefaults.ExpandedHeight else NeriMiniPlayerDefaults.Height)
-        .padding(start = 18.dp, end = 18.dp, bottom = 8.dp)
+        .padding(start = horizontalPadding, end = horizontalPadding, bottom = bottomPadding)
         .graphicsLayer { clip = false }
     val surfaceModifier = if (backdrop != null) {
         baseModifier.drawBackdrop(
@@ -215,74 +224,38 @@ fun NeriMiniPlayer(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                AnimatedContent(
-                    targetState = MiniPlayerContent(title, artist, coverUrl),
-                    modifier = Modifier.weight(1f),
-                    label = "mini_player_content",
-                    transitionSpec = {
-                        (slideInVertically(
-                            animationSpec = tween(220, easing = FastOutSlowInEasing),
-                            initialOffsetY = { it }
-                        ) + fadeIn(tween(160))) togetherWith (slideOutVertically(
-                            animationSpec = tween(180, easing = FastOutSlowInEasing),
-                            targetOffsetY = { -it }
-                        ) + fadeOut(tween(120)))
-                    }
-                ) { content ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(coverSize)
-                                .background(
-                                    color = if (content.coverUrl != null) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
-                                    shape = coverShape
-                                )
-                        ) {
-                            if (content.coverUrl != null) {
-                                val context = LocalContext.current
-                                AsyncImage(
-                                    model = fastScrollableImageRequest(
-                                        context = context,
-                                        data = content.coverUrl,
-                                        sizePx = coverRequestSizePx,
-                                        crossfade = false
-                                    ),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .clip(coverShape)
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier.matchParentSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.MusicNote,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(if (expanded) 24.dp else 20.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
+                val content = MiniPlayerContent(title, artist, coverUrl)
+                if (expanded) {
+                    MiniPlayerContentRow(
+                        content = content,
+                        coverSize = coverSize,
+                        coverShape = coverShape,
+                        coverRequestSizePx = coverRequestSizePx,
+                        expanded = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    AnimatedContent(
+                        targetState = content,
+                        modifier = Modifier.weight(1f),
+                        label = "mini_player_content",
+                        transitionSpec = {
+                            (slideInVertically(
+                                animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                initialOffsetY = { it }
+                            ) + fadeIn(tween(160))) togetherWith (slideOutVertically(
+                                animationSpec = tween(180, easing = FastOutSlowInEasing),
+                                targetOffsetY = { -it }
+                            ) + fadeOut(tween(120)))
                         }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            OutlinedLiquidText(
-                                text = content.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            OutlinedLiquidText(
-                                text = content.artist,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                    ) { animatedContent ->
+                        MiniPlayerContentRow(
+                            content = animatedContent,
+                            coverSize = coverSize,
+                            coverShape = coverShape,
+                            coverRequestSizePx = coverRequestSizePx,
+                            expanded = false
+                        )
                     }
                 }
 
@@ -319,6 +292,73 @@ fun NeriMiniPlayer(
                     content()
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MiniPlayerContentRow(
+    content: MiniPlayerContent,
+    coverSize: Dp,
+    coverShape: RoundedCornerShape,
+    coverRequestSizePx: Int,
+    expanded: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .size(coverSize)
+                .background(
+                    color = if (content.coverUrl != null) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
+                    shape = coverShape
+                )
+        ) {
+            if (content.coverUrl != null) {
+                val context = LocalContext.current
+                AsyncImage(
+                    model = fastScrollableImageRequest(
+                        context = context,
+                        data = content.coverUrl,
+                        sizePx = coverRequestSizePx,
+                        crossfade = false
+                    ),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(coverShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier.matchParentSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MusicNote,
+                        contentDescription = null,
+                        modifier = Modifier.size(if (expanded) 24.dp else 20.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            OutlinedLiquidText(
+                text = content.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            OutlinedLiquidText(
+                text = content.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
