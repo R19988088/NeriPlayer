@@ -480,8 +480,6 @@ fun NowPlayingScreen(
     var showCoverMenu by remember { mutableStateOf(false) }
     var showTopMoreOptions by remember { mutableStateOf(false) }
     var showAlbumInfoDialog by remember { mutableStateOf(false) }
-    var showSongNameMenu by remember { mutableStateOf(false) }
-    var showArtistMenu by remember { mutableStateOf(false) }
     var showQualitySwitchDialog by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     // Snackbar状态
@@ -490,7 +488,6 @@ fun NowPlayingScreen(
     var pendingSyncConfirmAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var pendingSyncConfirmLabel by remember { mutableStateOf("") }
 
-    val clipboard = LocalClipboard.current
     val screenScope = rememberCoroutineScope()
 
     val downloadCurrentCover: () -> Unit = {
@@ -551,9 +548,6 @@ fun NowPlayingScreen(
             downloadCurrentCover()
         }
     }
-
-    // 内容的进入动画
-    var contentVisible by remember { mutableStateOf(false) }
 
     var lyrics by remember(currentSong?.id) { mutableStateOf<List<LyricEntry>>(emptyList()) }
     var translatedLyrics by remember(currentSong?.id) { mutableStateOf<List<LyricEntry>>(emptyList()) }
@@ -646,7 +640,6 @@ fun NowPlayingScreen(
     val plainTranslatedLyrics = remember(translatedLyrics) { translatedLyrics.flattenWordTimedEntries() }
     var previewPositionOverrideMs by remember(currentSong?.id) { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(Unit) { contentVisible = true }
     LaunchedEffect(currentSong?.id) { showQualitySwitchDialog = false }
     // 当仓库回流或歌曲切换时，撤销本地乐观覆盖，用真实状态对齐
     LaunchedEffect(playlists, currentSong?.id) { favOverride = null }
@@ -960,99 +953,6 @@ fun NowPlayingScreen(
                         )
                     }
 
-                    AnimatedVisibility(
-                        visible = contentVisible,
-                        enter = slideInVertically(
-                            animationSpec = tween(durationMillis = 300, delayMillis = 80),
-                            initialOffsetY = { it / 4 }
-                        ) + fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = 80))
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box {
-                                Text(
-                                    text = currentSong?.customName ?: currentSong?.name ?: "",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = nowPlayingText,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .combinedClickable(
-                                            onClick = {
-                                                if (currentIndexInDisplay >= 0) {
-                                                    screenScope.launch {
-                                                        listState.animateScrollToItem(currentIndexInDisplay)
-                                                    }
-                                                }
-                                            },
-                                            onLongClick = { showSongNameMenu = true }
-                                        )
-                                )
-                                DropdownMenu(
-                                    expanded = showSongNameMenu,
-                                    onDismissRequest = { showSongNameMenu = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.action_copy_song_name)) },
-                                        onClick = {
-                                            val displayName = currentSong?.customName ?: currentSong?.name
-                                            displayName?.let { text ->
-                                                screenScope.launch {
-                                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("text", text)))
-                                                }
-                                            }
-                                            showSongNameMenu = false
-                                        }
-                                    )
-                                }
-                            }
-                            Box {
-                                Text(
-                                    text = currentSong?.customArtist ?: currentSong?.artist ?: "",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = nowPlayingSubText,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .combinedClickable(
-                                            onClick = {},
-                                            onLongClick = { showArtistMenu = true }
-                                        )
-                                )
-                                DropdownMenu(
-                                    expanded = showArtistMenu,
-                                    onDismissRequest = { showArtistMenu = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.action_copy_artist)) },
-                                        onClick = {
-                                            val displayArtist = currentSong?.customArtist ?: currentSong?.artist
-                                            displayArtist?.let { text ->
-                                                screenScope.launch {
-                                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("text", text)))
-                                                }
-                                            }
-                                            showArtistMenu = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    NowPlayingProgressSection(
-                        songKey = currentSong?.stableKey(),
-                        durationMs = durationMs,
-                        isPlaying = isPlaying,
-                        onPreviewPositionChange = { previewPositionOverrideMs = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(Modifier.height(10.dp))
-
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1063,7 +963,7 @@ fun NowPlayingScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .then(bottomBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
-                            contentPadding = PaddingValues(bottom = NeriMiniPlayerDefaults.Height + 28.dp)
+                            contentPadding = PaddingValues(bottom = NeriMiniPlayerDefaults.Height + 72.dp)
                         ) {
                             itemsIndexed(
                                 items = displayedQueue,
@@ -1126,13 +1026,27 @@ fun NowPlayingScreen(
                                 }
                             }
                         }
-                        NeriMiniPlayerHost(
+                        Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .fillMaxWidth(),
-                            onExpand = {},
-                            backdrop = bottomBarBackdrop
-                        )
+                                .fillMaxWidth()
+                        ) {
+                            NowPlayingProgressSection(
+                                songKey = currentSong?.stableKey(),
+                                durationMs = durationMs,
+                                isPlaying = isPlaying,
+                                onPreviewPositionChange = { previewPositionOverrideMs = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp)
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            NeriMiniPlayerHost(
+                                modifier = Modifier.fillMaxWidth(),
+                                onExpand = {},
+                                backdrop = bottomBarBackdrop
+                            )
+                        }
                     }
                 }
             }
