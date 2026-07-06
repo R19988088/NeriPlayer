@@ -61,15 +61,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -96,12 +93,6 @@ object NeriMiniPlayerDefaults {
     val HorizontalPadding = 18.dp
     val BottomPadding = 10.dp
 }
-
-private val LiquidContentShadow = Shadow(
-    color = Color.White,
-    offset = Offset.Zero,
-    blurRadius = 1f
-)
 
 private data class MiniPlayerContent(
     val title: String,
@@ -225,38 +216,27 @@ fun NeriMiniPlayer(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 val content = MiniPlayerContent(title, artist, coverUrl)
-                if (expanded) {
+                AnimatedContent(
+                    targetState = content,
+                    modifier = Modifier.weight(1f),
+                    label = "mini_player_content",
+                    transitionSpec = {
+                        (slideInVertically(
+                            animationSpec = tween(220, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it }
+                        ) + fadeIn(tween(160))) togetherWith (slideOutVertically(
+                            animationSpec = tween(180, easing = FastOutSlowInEasing),
+                            targetOffsetY = { -it }
+                        ) + fadeOut(tween(120)))
+                    }
+                ) { animatedContent ->
                     MiniPlayerContentRow(
-                        content = content,
+                        content = animatedContent,
                         coverSize = coverSize,
                         coverShape = coverShape,
                         coverRequestSizePx = coverRequestSizePx,
-                        expanded = true,
-                        modifier = Modifier.weight(1f)
+                        expanded = expanded
                     )
-                } else {
-                    AnimatedContent(
-                        targetState = content,
-                        modifier = Modifier.weight(1f),
-                        label = "mini_player_content",
-                        transitionSpec = {
-                            (slideInVertically(
-                                animationSpec = tween(220, easing = FastOutSlowInEasing),
-                                initialOffsetY = { it }
-                            ) + fadeIn(tween(160))) togetherWith (slideOutVertically(
-                                animationSpec = tween(180, easing = FastOutSlowInEasing),
-                                targetOffsetY = { -it }
-                            ) + fadeOut(tween(120)))
-                        }
-                    ) { animatedContent ->
-                        MiniPlayerContentRow(
-                            content = animatedContent,
-                            coverSize = coverSize,
-                            coverShape = coverShape,
-                            coverRequestSizePx = coverRequestSizePx,
-                            expanded = false
-                        )
-                    }
                 }
 
                 HapticIconButton(onClick = { onPlayPause() }) {
@@ -349,31 +329,20 @@ private fun MiniPlayerContentRow(
         }
 
         Column(modifier = Modifier.weight(1f)) {
-            OutlinedLiquidText(
+            Text(
                 text = content.title,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            OutlinedLiquidText(
+            Text(
                 text = content.artist,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
-}
-
-@Composable
-private fun OutlinedLiquidText(
-    text: String,
-    style: TextStyle,
-    color: Color,
-) {
-    Text(
-        text = text,
-        style = style.copy(shadow = LiquidContentShadow),
-        color = color,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
-    )
 }
