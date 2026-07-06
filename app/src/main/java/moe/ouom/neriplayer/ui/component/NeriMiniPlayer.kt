@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -90,6 +91,7 @@ import moe.ouom.neriplayer.util.fastScrollableImageRequest
 
 object NeriMiniPlayerDefaults {
     val Height = 64.dp
+    val ExpandedHeight = 112.dp
 }
 
 private val LiquidContentShadow = Shadow(
@@ -109,6 +111,7 @@ fun NeriMiniPlayerHost(
     modifier: Modifier = Modifier,
     onExpand: () -> Unit = {},
     backdrop: Backdrop? = null,
+    progressContent: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val song by PlayerManager.currentSongFlow.collectAsState()
@@ -123,6 +126,7 @@ fun NeriMiniPlayerHost(
             onPlayPause = { PlayerManager.togglePlayPause() },
             onExpand = onExpand,
             backdrop = backdrop,
+            progressContent = progressContent,
         )
     }
 }
@@ -162,11 +166,16 @@ fun NeriMiniPlayer(
     onPlayPause: () -> Unit,
     onExpand: () -> Unit,
     backdrop: Backdrop? = null,
+    progressContent: (@Composable () -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(26.dp)
     val isLightTheme = !isSystemInDarkTheme()
+    val expanded = progressContent != null
+    val coverSize = if (expanded) 56.dp else 40.dp
+    val coverShape = RoundedCornerShape(if (expanded) 10.dp else 8.dp)
+    val coverRequestSizePx = if (expanded) 160 else 128
     val baseModifier = modifier
-        .height(NeriMiniPlayerDefaults.Height)
+        .height(if (expanded) NeriMiniPlayerDefaults.ExpandedHeight else NeriMiniPlayerDefaults.Height)
         .padding(start = 18.dp, end = 18.dp, bottom = 8.dp)
         .graphicsLayer { clip = false }
     val surfaceModifier = if (backdrop != null) {
@@ -196,106 +205,118 @@ fun NeriMiniPlayer(
             .clip(shape)
             .clickable { onExpand() }
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            AnimatedContent(
-                targetState = MiniPlayerContent(title, artist, coverUrl),
-                modifier = Modifier.weight(1f),
-                label = "mini_player_content",
-                transitionSpec = {
-                    (slideInVertically(
-                        animationSpec = tween(220, easing = FastOutSlowInEasing),
-                        initialOffsetY = { it }
-                    ) + fadeIn(tween(160))) togetherWith (slideOutVertically(
-                        animationSpec = tween(180, easing = FastOutSlowInEasing),
-                        targetOffsetY = { -it }
-                    ) + fadeOut(tween(120)))
-                }
-            ) { content ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(
-                                color = if (content.coverUrl != null) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(8.dp)
-                            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                AnimatedContent(
+                    targetState = MiniPlayerContent(title, artist, coverUrl),
+                    modifier = Modifier.weight(1f),
+                    label = "mini_player_content",
+                    transitionSpec = {
+                        (slideInVertically(
+                            animationSpec = tween(220, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it }
+                        ) + fadeIn(tween(160))) togetherWith (slideOutVertically(
+                            animationSpec = tween(180, easing = FastOutSlowInEasing),
+                            targetOffsetY = { -it }
+                        ) + fadeOut(tween(120)))
+                    }
+                ) { content ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (content.coverUrl != null) {
-                            val context = LocalContext.current
-                            AsyncImage(
-                                model = fastScrollableImageRequest(
-                                    context = context,
-                                    data = content.coverUrl,
-                                    sizePx = 128,
-                                    crossfade = false
-                                ),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .clip(RoundedCornerShape(8.dp))
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier.matchParentSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.MusicNote,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        Box(
+                            modifier = Modifier
+                                .size(coverSize)
+                                .background(
+                                    color = if (content.coverUrl != null) Color.Transparent else MaterialTheme.colorScheme.primaryContainer,
+                                    shape = coverShape
                                 )
+                        ) {
+                            if (content.coverUrl != null) {
+                                val context = LocalContext.current
+                                AsyncImage(
+                                    model = fastScrollableImageRequest(
+                                        context = context,
+                                        data = content.coverUrl,
+                                        sizePx = coverRequestSizePx,
+                                        crossfade = false
+                                    ),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clip(coverShape)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.matchParentSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.MusicNote,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(if (expanded) 24.dp else 20.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        OutlinedLiquidText(
-                            text = content.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        OutlinedLiquidText(
-                            text = content.artist,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Column(modifier = Modifier.weight(1f)) {
+                            OutlinedLiquidText(
+                                text = content.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            OutlinedLiquidText(
+                                text = content.artist,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                HapticIconButton(onClick = { onPlayPause() }) {
+                    AnimatedContent(
+                        targetState = isPlaying,
+                        label = "mini_play_pause_icon",
+                        transitionSpec = {
+                            (scaleIn(
+                                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                                initialScale = 0.7f
+                            ) + fadeIn(
+                                animationSpec = tween(durationMillis = 150)
+                            )) togetherWith (scaleOut(
+                                animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
+                                targetScale = 0.7f
+                            ) + fadeOut(
+                                animationSpec = tween(durationMillis = 100)
+                            ))
+                        }
+                    ) { currentlyPlaying ->
+                        LiquidShadowedIcon(
+                            imageVector = if (currentlyPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                            contentDescription = if (currentlyPlaying) stringResource(R.string.lyrics_pause) else stringResource(R.string.lyrics_play),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
             }
 
-            HapticIconButton(onClick = { onPlayPause() }) {
-                AnimatedContent(
-                    targetState = isPlaying,
-                    label = "mini_play_pause_icon",
-                    transitionSpec = {
-                        (scaleIn(
-                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                            initialScale = 0.7f
-                        ) + fadeIn(
-                            animationSpec = tween(durationMillis = 150)
-                        )) togetherWith (scaleOut(
-                            animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
-                            targetScale = 0.7f
-                        ) + fadeOut(
-                            animationSpec = tween(durationMillis = 100)
-                        ))
-                    }
-                ) { currentlyPlaying ->
-                    LiquidShadowedIcon(
-                        imageVector = if (currentlyPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                        contentDescription = if (currentlyPlaying) stringResource(R.string.lyrics_pause) else stringResource(R.string.lyrics_play),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(22.dp)
-                    )
+            progressContent?.let { content ->
+                Box(modifier = Modifier.padding(top = 2.dp)) {
+                    content()
                 }
             }
         }

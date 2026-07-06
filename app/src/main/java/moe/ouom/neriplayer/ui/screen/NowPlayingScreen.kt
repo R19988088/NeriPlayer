@@ -963,7 +963,7 @@ fun NowPlayingScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .then(bottomBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier),
-                            contentPadding = PaddingValues(bottom = NeriMiniPlayerDefaults.Height + 72.dp)
+                            contentPadding = PaddingValues(bottom = NeriMiniPlayerDefaults.ExpandedHeight + 28.dp)
                         ) {
                             itemsIndexed(
                                 items = displayedQueue,
@@ -1026,27 +1026,22 @@ fun NowPlayingScreen(
                                 }
                             }
                         }
-                        Column(
+                        NeriMiniPlayerHost(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                        ) {
-                            NowPlayingProgressSection(
-                                songKey = currentSong?.stableKey(),
-                                durationMs = durationMs,
-                                isPlaying = isPlaying,
-                                onPreviewPositionChange = { previewPositionOverrideMs = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 18.dp)
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            NeriMiniPlayerHost(
-                                modifier = Modifier.fillMaxWidth(),
-                                onExpand = {},
-                                backdrop = bottomBarBackdrop
-                            )
-                        }
+                                .fillMaxWidth(),
+                            onExpand = {},
+                            backdrop = bottomBarBackdrop,
+                            progressContent = {
+                                NowPlayingProgressSection(
+                                    songKey = currentSong?.stableKey(),
+                                    durationMs = durationMs,
+                                    isPlaying = isPlaying,
+                                    onPreviewPositionChange = { previewPositionOverrideMs = it },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        )
                     }
                 }
             }
