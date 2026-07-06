@@ -194,6 +194,7 @@ private fun NeteaseLibraryMode.asLibraryTab(): LibraryTab {
         NeteaseLibraryMode.ALBUM -> LibraryTab.NETEASEALBUM
         NeteaseLibraryMode.PODCAST -> LibraryTab.NETEASEPODCAST
         NeteaseLibraryMode.PLAYLIST -> LibraryTab.NETEASE
+        NeteaseLibraryMode.FAVORITE_PLAYLIST -> LibraryTab.NETEASE
     }
 }
 
@@ -260,6 +261,7 @@ fun LibraryScreen(
                 NeteaseLibraryMode.PLAYLIST -> vm.refreshNeteasePlaylists()
                 NeteaseLibraryMode.ALBUM -> vm.refreshNeteaseAlbums()
                 NeteaseLibraryMode.PODCAST -> vm.refreshNeteasePodcasts()
+                NeteaseLibraryMode.FAVORITE_PLAYLIST -> vm.refreshNeteaseFavoritePlaylists()
             }
         }
     }
@@ -276,6 +278,7 @@ fun LibraryScreen(
                 NeteaseLibraryMode.PLAYLIST -> vm.refreshNeteasePlaylists()
                 NeteaseLibraryMode.ALBUM -> vm.refreshNeteaseAlbums()
                 NeteaseLibraryMode.PODCAST -> vm.refreshNeteasePodcasts()
+                NeteaseLibraryMode.FAVORITE_PLAYLIST -> vm.refreshNeteaseFavoritePlaylists()
             }
             else -> Unit
         }
